@@ -1,0 +1,60 @@
+# Node.js dependencies (for any subdirectory)
+*/node_modules/
+
+# npm logs
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# pnpm lock files
+pnpm-lock.yaml
+
+# VSCode settings
+.vscode/
+
+# OS-specific files
+.DS_Store        # macOS
+Thumbs.db        # Windows
+
+# Environment files
+.env             # .env file for environment variables
+.env.*           # .env files with any suffix (e.g., .env.production, .env.local)
+
+# Log files
+logs/
+*.log
+*.log.*
+
+# Build output
+/dist/
+build/
+
+# Temporary files
+*.swp
+*.swo
+
+# Testing directories
+/coverage/
+
+# IDE-specific files (other IDEs/editors)
+.idea/          # JetBrains (IntelliJ, WebStorm, etc.)
+*.sublime-workspace
+*.sublime-project
+
+# Mac specific
+.AppleDouble
+.LSOverride
+
+# Linux specific
+*~
+
+# Windows specific
+Thumbs.db
+Desktop.ini
+
+# Debugger files
+*.pid
+*.seed
+
+# React Router (if needed)
+.react-router/
