@@ -1,7 +1,7 @@
 // frontend/app/contexts/GameContext.tsx
 import React, { createContext, useContext, useState, useEffect  } from 'react';
 import type { ReactNode } from 'react'
-import type { BoardState, GameState, Score } from '../types';
+import type { BoardState, GameState, Opponent, PlayerSymbol } from '../types';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { EVENTS } from '../../../backend/src/socket/events'; // Adjust path
@@ -33,7 +33,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
     
-    const handleGameStart = (data: any) => {
+    const handleGameStart = (data: {
+        gameId: string;
+        board: BoardState;
+        playerSymbol: PlayerSymbol;
+        currentPlayerId: string;
+        opponent: Opponent;
+    }) => {
+        // This is the critical state update that starts the game on the UI
         setGameState(prev => ({
             ...prev,
             gameId: data.gameId,
@@ -41,22 +48,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             playerSymbol: data.playerSymbol,
             currentPlayerId: data.currentPlayerId,
             opponent: data.opponent,
-            gameActive: true,
+            gameActive: true, // This is the trigger!
             winner: null,
+            timeLeft: 10,
         }));
     };
 
     const handleGameStateUpdate = (data: { board: BoardState; currentPlayerId: string; }) => {
-        setGameState(prev => ({
-            ...prev,
-            board: data.board,
-            currentPlayerId: data.currentPlayerId,
-            timeLeft: 10, // Reset timer on state update
-        }));
+        setGameState(prev => ({ ...prev, board: data.board, currentPlayerId: data.currentPlayerId, timeLeft: 10 }));
     };
     
-    const handleTimerUpdate = (data: { timeLeft: number; currentPlayerId: string; }) => {
-        setGameState(prev => ({ ...prev, timeLeft: data.timeLeft, currentPlayerId: data.currentPlayerId }));
+    const handleTimerUpdate = (data: { timeLeft: number; }) => {
+        setGameState(prev => ({ ...prev, timeLeft: data.timeLeft }));
     };
 
     const handleGameEnd = (data: { winnerId: string; reason: string }) => {
@@ -73,11 +76,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }));
     };
     
+    // Register all listeners
     socket.on(EVENTS.GAME_START, handleGameStart);
     socket.on(EVENTS.GAME_STATE_UPDATE, handleGameStateUpdate);
     socket.on(EVENTS.GAME_TIMER_UPDATE, handleTimerUpdate);
     socket.on(EVENTS.GAME_END, handleGameEnd);
 
+    // Cleanup listeners on disconnect
     return () => {
       socket.off(EVENTS.GAME_START, handleGameStart);
       socket.off(EVENTS.GAME_STATE_UPDATE, handleGameStateUpdate);
@@ -89,7 +94,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetGame = () => {
     setGameState(prev => ({
         ...initialGameState,
-        scores: prev.scores // Keep scores between games
+        scores: prev.scores
     }));
   };
   

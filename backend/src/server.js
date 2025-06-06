@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const config = require('./config');
+const userRoutes = require('./routes/userRoutes');
 const { docClient } = require('./config/db');
 const { ScanCommand, PutCommand, GetCommand, UpdateCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const setupSocketHandlers = require('./socket');
@@ -26,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 // app.use('/api/games', gameRoutes);
 
 // Initial Test Route (can be moved or removed later)

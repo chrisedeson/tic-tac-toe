@@ -15,6 +15,7 @@ import GameEndModal from '../components/game/GameEndModal';
 import ChatWindow from '../components/chat/ChatWindow';
 import UserList from '../components/chat/UserList'; // For online players display & challenge
 import ChatIcon from '../components/chat/ChatIcon';
+import api from '../services/api';
 
 // Assuming EVENTS are imported or defined
 import { EVENTS } from '../../../backend/src/socket/events'; // Adjust path
@@ -42,6 +43,7 @@ const GamePage: React.FC = () => {
   const [showNameDialog, setShowNameDialog] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
+  const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
   // const [playingAgainstChristopher, setPlayingAgainstChristopher] = useState(false); // Manage in GameContext
 
   // Effect to show name dialog if not authenticated
@@ -51,6 +53,43 @@ const GamePage: React.FC = () => {
     }
   }, [isAuthenticated, authLoading]);
 
+  // This effect fetches the full user list once
+useEffect(() => {
+    const fetchAllUsers = async () => {
+        try {
+            const response = await api.get('/users');
+            // We set this to the offline list initially
+            setOfflinePlayers(response.data);
+        } catch (error) {
+            console.error("Failed to fetch user list", error);
+        }
+    };
+    fetchAllUsers();
+}, []);
+
+
+  // This effect handles all real-time socket events
+  useEffect(() => {
+      if (!socket || !isConnected) return;
+
+      // This event gives us the list of who is ACTUALLY online right now
+      const handleUserListUpdate = (users: OnlineUser[]) => {
+          setOnlinePlayers(users);
+          // We also update the offline list based on who is online
+          setOfflinePlayers(prevOffline => 
+              prevOffline.filter(offlineUser => !users.some(onlineUser => onlineUser.userId === offlineUser.userId))
+          );
+      };
+
+      socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
+
+      // ... (All other socket event listeners for challenges, game state, etc. from previous responses go here)
+      
+      return () => {
+        socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
+        // ... (unregister all other listeners)
+      };
+  }, [socket, isConnected, user]);
 
   // Socket event listeners
   useEffect(() => {
@@ -192,9 +231,11 @@ const GamePage: React.FC = () => {
             <Scoreboard scores={scores} />
           </div>
           <UserList
-            users={onlinePlayers}
             onChallenge={handleChallengePlayer}
             currentUser={user}
+            onlineUsers={onlinePlayers}
+            offlineUsers={offlinePlayers}
+
           />
         </aside>
       </main>
