@@ -1,18 +1,16 @@
-// backend/src/server.js
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const config = require('./config');
-const userRoutes = require('./routes/userRoutes');
-const { docClient } = require('./config/db');
-const { ScanCommand, PutCommand, GetCommand, UpdateCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
-const setupSocketHandlers = require('./socket');
 
-// Routes
 const authRoutes = require('./routes/authRoutes');
-// const userRoutes = require('./routes/userRoutes'); // To be created
-// const gameRoutes = require('./routes/gameRoutes'); // To be created
+const userRoutes = require('./routes/userRoutes');
+// const gameRoutes = require('./routes/gameRoutes'); // TODO: Add when ready
+
+const { docClient } = require('./config/db');
+const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const setupSocketHandlers = require('./socket');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,22 +18,25 @@ const io = new Server(server, {
   cors: config.corsOptions,
 });
 
-// Basic Middleware
+// Middleware
 app.use(cors(config.corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// API Routes
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-// app.use('/api/games', gameRoutes);
+// app.use('/api/games', gameRoutes); // Future addition
 
-// Initial Test Route (can be moved or removed later)
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Test DynamoDB connection
 app.get('/test-aws', async (req, res) => {
   try {
-    const params = { TableName: config.aws.usersTable };
-    const command = new ScanCommand(params);
-    const data = await docClient.send(command);
+    const data = await docClient.send(new ScanCommand({ TableName: config.aws.usersTable }));
     if (!data.Items || data.Items.length === 0) {
       return res.status(404).json({ message: 'No data found in DynamoDB' });
     }
@@ -46,18 +47,19 @@ app.get('/test-aws', async (req, res) => {
   }
 });
 
-// Setup Socket.io
+// Initialize socket handlers
 setupSocketHandlers(io);
 
-// Global Error Handler (simple example)
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled error:', err.stack);
   res.status(500).send({ error: 'Something broke!' });
 });
 
+// Start server
 server.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-  console.log(`Socket.io listening on port ${config.port}`);
+  console.log(`🚀 Server running on http://localhost:${config.port}`);
+  console.log(`🔌 Socket.IO active on port ${config.port}`);
 });
 
-module.exports = { app, server, io }; // Export for potential testing
+module.exports = { app, server, io };

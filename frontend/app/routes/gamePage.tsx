@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
-import { useGame } from '../contexts/GameContext'; // Assuming GameContext handles game state
+import { useGame } from '../contexts/GameContext';
+import type { OnlineUser } from '../types';
 
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -13,116 +14,124 @@ import Scoreboard from '../components/game/Scoreboard';
 import Timer from '../components/game/Timer';
 import GameEndModal from '../components/game/GameEndModal';
 import ChatWindow from '../components/chat/ChatWindow';
-import UserList from '../components/chat/UserList'; // For online players display & challenge
+import UserList from '../components/chat/UserList';
 import ChatIcon from '../components/chat/ChatIcon';
 import api from '../services/api';
 
-// Assuming EVENTS are imported or defined
-import { EVENTS } from '../../../backend/src/socket/events'; // Adjust path
+import { EVENTS } from '../../../backend/src/socket/events';
 import { toast } from 'react-toastify';
-
-
-interface OnlineUser {
-  userId: string;
-  username: string;
-  lastSeen?: string; // e.g., "Online", "Last seen: 5 mins ago"
-  socketId?: string; // useful for direct targeting if needed, but prefer userId
-}
-
 
 const GamePage: React.FC = () => {
   const { darkMode } = useTheme();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { socket, isConnected } = useSocket();
   const {
-    board, setBoard, currentPlayer, setCurrentPlayer, winner, setWinner,
-    gameActive, setGameActive, timeLeft, setTimeLeft, scores, setScores,
-    // ... other game states from GameContext
+    gameId,
+    board,
+    playerSymbol,
+    currentPlayerId,
+    opponent,
+    gameActive,
+    winner,
+    scores,
+    timeLeft,
+    resetGame,
   } = useGame();
 
   const [showNameDialog, setShowNameDialog] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
   const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
-  // const [playingAgainstChristopher, setPlayingAgainstChristopher] = useState(false); // Manage in GameContext
 
-  // Effect to show name dialog if not authenticated
+  // If not authenticated yet, show the name dialog
   useEffect(() => {
     if (!authLoading) {
       setShowNameDialog(!isAuthenticated);
     }
   }, [isAuthenticated, authLoading]);
 
-  // This effect fetches the full user list once
-useEffect(() => {
+  // Once we mount, fetch every user to initialize “offlinePlayers”
+  useEffect(() => {
     const fetchAllUsers = async () => {
-        try {
-            const response = await api.get('/users');
-            // We set this to the offline list initially
-            setOfflinePlayers(response.data);
-        } catch (error) {
-            console.error("Failed to fetch user list", error);
-        }
+      try {
+        const response = await api.get('/users');
+        setOfflinePlayers(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch user list', error);
+      }
     };
     fetchAllUsers();
-}, []);
+  }, []);
 
-
-  // This effect handles all real-time socket events
+  // Whenever socket connects, ask for the real “online” list and register handlers
   useEffect(() => {
-      if (!socket || !isConnected) return;
+    if (!socket || !isConnected || !user) return;
 
-      // This event gives us the list of who is ACTUALLY online right now
-      const handleUserListUpdate = (users: OnlineUser[]) => {
-          setOnlinePlayers(users);
-          // We also update the offline list based on who is online
-          setOfflinePlayers(prevOffline => 
-              prevOffline.filter(offlineUser => !users.some(onlineUser => onlineUser.userId === offlineUser.userId))
-          );
-      };
+    // 1) Immediately ask server: “Give me everyone who is online.”
+    socket.emit(EVENTS.GET_USER_LIST);
 
-      socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
+    // 2) Listen for the updated list of online users
+    const handleUserListUpdate = (users: OnlineUser[]) => {
+      // Remove ourselves from that list, and keep them in “onlinePlayers”
+      setOnlinePlayers(users.filter((u) => u.userId !== user.id));
 
-      // ... (All other socket event listeners for challenges, game state, etc. from previous responses go here)
-      
-      return () => {
-        socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
-        // ... (unregister all other listeners)
-      };
-  }, [socket, isConnected, user]);
+      // Anyone who is not in the “online” list, is implicitly “offline”
+      setOfflinePlayers((prevOffline) =>
+        prevOffline.filter(
+          (off) => !users.some((on) => on.userId === off.userId)
+        )
+      );
+    };
 
-  // Socket event listeners
-  useEffect(() => {
-    if (!socket || !isConnected) return;
-
-    socket.emit(EVENTS.GET_USER_LIST); // Request user list on connect or page load
-
-    socket.on(EVENTS.USER_LIST_UPDATED, (users: OnlineUser[]) => {
-      setOnlinePlayers(users.filter(p => p.userId !== user?.id)); // Exclude self
-    });
-
-    socket.on(EVENTS.CHALLENGE_RECEIVE, ({ fromUser }: { fromUser: OnlineUser }) => {
-      // Use toast with actions for accept/decline
+    // 3) Listen for inbound “someone challenges you” to Christopher or to another human
+    const handleChallengeReceive = ({
+      fromUser,
+    }: {
+      fromUser: OnlineUser;
+    }) => {
       toast(
         ({ closeToast }) => (
           <div>
-            <p>{fromUser.username} challenges you to a game!</p>
+            <p>
+              <strong>{fromUser.username}</strong> challenges you to a game!
+            </p>
             <div style={{ marginTop: '10px' }}>
               <button
                 onClick={() => {
-                  socket.emit(EVENTS.CHALLENGE_RESPONSE, { toUserId: fromUser.userId, accepted: true });
+                  socket.emit(EVENTS.CHALLENGE_RESPONSE, {
+                    toUserId: fromUser.userId,
+                    accepted: true,
+                  });
                   closeToast && closeToast();
                 }}
-                style={{ marginRight: '10px', padding: '5px', background: 'green', color: 'white' }}
+                style={{
+                  marginRight: '8px',
+                  padding: '6px 12px',
+                  background: 'green',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
               >
                 Accept
               </button>
               <button
                 onClick={() => {
-                  socket.emit(EVENTS.CHALLENGE_RESPONSE, { toUserId: fromUser.userId, accepted: false });
+                  socket.emit(EVENTS.CHALLENGE_RESPONSE, {
+                    toUserId: fromUser.userId,
+                    accepted: false,
+                  });
                   closeToast && closeToast();
                 }}
-                style={{ padding: '5px', background: 'red', color: 'white' }}
+                style={{
+                  padding: '6px 12px',
+                  background: 'crimson',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
               >
                 Decline
               </button>
@@ -131,101 +140,99 @@ useEffect(() => {
         ),
         { autoClose: false, closeOnClick: false, draggable: false, type: 'info' }
       );
-      // Play a sound
-    });
+    };
 
-    socket.on(EVENTS.CHALLENGE_RESULT, ({ message, gameData }: { message: string, gameData?: any }) => {
-      toast.info(message);
-      if (gameData) {
-        // Start game using gameData (includes opponent, startingPlayer, gameId etc.)
-        // setGameActive(true); setBoard(...); setCurrentPlayer(...)
-        // This logic should be centralized in GameContext or a game service
-      }
-    });
-
-    // ... other game event listeners (GAME_START, GAME_MOVE_RECEIVE, GAME_END, etc.)
-    // These should update the GameContext state
+    socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
+    socket.on(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
 
     return () => {
-      socket.off(EVENTS.USER_LIST_UPDATED);
-      socket.off(EVENTS.CHALLENGE_RECEIVE);
-      socket.off(EVENTS.CHALLENGE_RESULT);
-      // ... unregister other listeners
+      socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
+      socket.off(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
     };
   }, [socket, isConnected, user]);
 
-
-  const handleStartNewGame = (vsChristopher: boolean) => {
-    if (vsChristopher) {
-      // Logic for challenging Christopher
-      socket?.emit(EVENTS.CHALLENGE_CHRISTOPHER, { userId: user?.id });
-      toast.info("Challenging Christopher...");
-    } else {
-      // This button would likely be removed in favor of challenging specific users
-      // Or it could be a "find random match" feature
-      toast.info("Select a player from the list to challenge.");
-    }
-    // setGameActive(true); // Actual game start is handled by server response
-    // Reset local state (or better, this should be a message to server to start a new game state)
-  };
-
+  // Called when you click “Play vs Christopher” or click “Challenge (other human)”
   const handleChallengePlayer = (targetUser: OnlineUser) => {
-    if (!user) {
-      toast.error("You must be logged in to challenge players.");
+    if (!user || !socket) {
+      toast.error('You must be logged in to challenge players.');
       return;
     }
-    if (targetUser.userId === 'christopher') { // Assuming a special ID for Christopher
-        socket?.emit(EVENTS.CHALLENGE_CHRISTOPHER, { userId: user.id });
-        toast.info(`Challenging Christopher...`);
+    if (targetUser.userId === 'christopher') {
+      socket.emit(EVENTS.CHALLENGE_CHRISTOPHER);
+      toast.info('Challenging Christopher...');
     } else {
-        socket?.emit(EVENTS.CHALLENGE_SEND, { fromUserId: user.id, fromUsername: user.username, toUserId: targetUser.userId });
-        toast.info(`Challenge sent to ${targetUser.username}!`);
+      socket.emit(EVENTS.CHALLENGE_SEND, {
+        toUserId: targetUser.userId,
+      });
+      toast.info(`Challenge sent to ${targetUser.username}!`);
     }
   };
 
-
+  // If auth is still loading, show a simple spinner
   if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading…
+      </div>
+    );
   }
 
+  // If not yet authenticated, force the NameInputDialog
   if (showNameDialog && !isAuthenticated) {
     return <NameInputDialog setShowDialog={setShowNameDialog} />;
   }
 
   return (
-    <div className={`min-h-screen w-full flex flex-col ${darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div
+      className={`min-h-screen w-full flex flex-col ${
+        darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}
+    >
       <Header />
 
       <main className="flex-grow flex flex-col md:flex-row p-4 md:p-6 gap-6">
-        {/* Left Side: Game Area & Scoreboard (for small screens) */}
+        {/* ─── Left Side: Game Board & Score (stack on small screens) ───────────────────────── */}
         <div className="flex-grow md:w-[70%] flex flex-col items-center">
+          {/* If a game is active, show the timer: */}
           {gameActive && (
             <div className="w-full max-w-md mb-4">
-              <Timer timeLeft={timeLeft} currentPlayer={currentPlayer} />
+              <Timer timeLeft={timeLeft} currentPlayerId={currentPlayerId} />
             </div>
           )}
-          <Board /> {/* Board component will use GameContext */}
+
+          {/* The tic-tac-toe board itself */}
+          <Board />
+
+          {/* If no gameActive *and* no winner, show “Challenge a player” */}
           {!gameActive && !winner && (
             <div className="mt-8 flex flex-col items-center space-y-4 md:space-y-0 md:space-x-4 md:flex-row">
-              <p className="text-lg">Challenge a player from the list to start a game!</p>
-              {/* Button to play vs Christopher directly (if preferred over list challenge) */}
-               <button
-                 onClick={() => handleChallengePlayer({userId: 'christopher', username: 'Christopher'})} // Special object for Christopher
-                 className="px-6 py-3 bg-gradient-to-r from-[#B635D9] to-[#FF4F8B] text-white font-semibold rounded-lg shadow hover:opacity-90 transition-opacity"
-               >
-                 Play vs Christopher
-               </button>
+              <p className="text-lg">
+                Challenge a player from the list to start a game!
+              </p>
+              <button
+                onClick={() =>
+                  handleChallengePlayer({
+                    userId: 'christopher',
+                    username: 'Christopher',
+                  })
+                }
+                className="px-6 py-3 bg-gradient-to-r from-[#B635D9] to-[#FF4F8B] text-white font-semibold rounded-lg shadow hover:opacity-90 transition-opacity"
+              >
+                Play vs Christopher
+              </button>
             </div>
           )}
-          {winner && (
-            <GameEndModal /* Props from GameContext or passed down */ />
-          )}
-          <div className="md:hidden mt-6 w-full max-w-md"> {/* Scoreboard for mobile */}
+
+          {/* If there is a winner, show the modal */}
+          {winner && <GameEndModal />}
+
+          {/* On mobile only: show scoreboard underneath */}
+          <div className="md:hidden mt-6 w-full max-w-md">
             <Scoreboard scores={scores} />
           </div>
         </div>
 
-        {/* Right Side: Scoreboard, Online Players (Sidebar) */}
+        {/* ─── Right Side: Scoreboard (desktop) + Players List ───────────────────────────────── */}
         <aside className="w-full md:w-[30%] lg:w-[25%] p-4 dark:bg-gray-800 bg-gray-100 rounded-lg shadow">
           <div className="hidden md:block mb-6">
             <Scoreboard scores={scores} />
@@ -235,19 +242,19 @@ useEffect(() => {
             currentUser={user}
             onlineUsers={onlinePlayers}
             offlineUsers={offlinePlayers}
-
           />
         </aside>
       </main>
 
       <Footer />
-      <ChatIcon onClick={() => setShowChat(prev => !prev)} />
+
+      <ChatIcon onClick={() => setShowChat((prev) => !prev)} />
       {showChat && (
         <ChatWindow
-            onClose={() => setShowChat(false)}
-            currentUser={user} // Pass current user for message alignment
-            onlineUsersForChat={onlinePlayers} // Pass for private chat selection
-            onChallengePlayer={handleChallengePlayer} // Allow challenging from chat
+          onClose={() => setShowChat(false)}
+          currentUser={user!}
+          onlineUsersForChat={onlinePlayers}
+          onChallengePlayer={handleChallengePlayer}
         />
       )}
     </div>

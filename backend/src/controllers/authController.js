@@ -48,9 +48,9 @@ exports.registerOrLoginUser = async (req, res) => {
     // which is not ideal for actual login, but suffices for "enter name".
 
     res.status(201).json({
-      message: 'User registered/updated successfully',
-      user: { id: userItem.id, username: userItem.username }, // Send back minimal info, or a token
-    });
+       message: 'User registered/updated successfully',
+       user: { id: userItem.userID, username: userItem.username },
+     });
 
   } catch (error) {
     console.error('Error in registerOrLoginUser:', error);
