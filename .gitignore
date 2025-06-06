@@ -19,6 +19,8 @@ Thumbs.db        # Windows
 # Environment files
 .env             # .env file for environment variables
 .env.*           # .env files with any suffix (e.g., .env.production, .env.local)
+*.env.example
+*.env
 
 # Log files
 logs/

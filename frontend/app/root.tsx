@@ -1,3 +1,4 @@
+// frontend/app/root.tsx
 import {
   isRouteErrorResponse,
   Links,
@@ -8,6 +9,13 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { SocketProvider } from "./contexts/SocketContext";
+import { GameProvider } from "./contexts/GameContext";
+import { ToastContainer } from "react-toastify";
+
+import "react-toastify/dist/ReactToastify.css";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -33,7 +41,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <GameProvider>
+                {children}
+                <ToastContainer
+                  position="top-right"
+                  autoClose={5000}
+                  hideProgressBar={false}
+                  newestOnTop
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                  theme="colored"
+                />
+              </GameProvider>
+            </SocketProvider>
+          </AuthProvider>
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
