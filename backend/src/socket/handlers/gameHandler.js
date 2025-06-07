@@ -14,33 +14,51 @@ const activeGames = new Map();
 
 // ---------------------- Update Game in DB ----------------------
 const updateGameInDB = async (gameId, updateData) => {
-  const { userID } = updateData;
+  console.log('[DynamoDB] updateGameInDB called with:', { gameId, updateData });
+  if (!gameId) {
+    console.error('[DynamoDB] Missing gameId');
+    return null;
+  }
+
+  // Remove userID from the Key, since it’s NOT a key attribute in the table
   const updateExpressionParts = [];
   const expressionAttributeValues = {};
   const expressionAttributeNames = {};
 
   for (const key in updateData) {
+    if (key === "gameID") continue;  // skip gameID key
+    const value = updateData[key];
+    if (value === undefined) continue;
+
     const attrKey = `#${key}`;
     const attrValue = `:${key}`;
     updateExpressionParts.push(`${attrKey} = ${attrValue}`);
     expressionAttributeNames[attrKey] = key;
-    expressionAttributeValues[attrValue] = updateData[key];
+    expressionAttributeValues[attrValue] = value;
+  }
+
+  if (updateExpressionParts.length === 0) {
+    console.warn('[DynamoDB] No updatable fields found in updateData:', updateData);
+    return null;
   }
 
   const params = {
     TableName: config.aws.gamesTable,
-    Key: { userID, gameID: gameId },
+    Key: { gameID: gameId },  // ONLY gameID here
     UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
     ExpressionAttributeNames: expressionAttributeNames,
     ExpressionAttributeValues: expressionAttributeValues,
     ReturnValues: "ALL_NEW",
   };
 
+  console.log('[DynamoDB] UpdateCommand params:', JSON.stringify(params, null, 2));
+
   try {
     const { Attributes } = await docClient.send(new UpdateCommand(params));
+    console.log('[DynamoDB] Update successful:', Attributes);
     return Attributes;
   } catch (error) {
-    console.error(`Failed to update game ${gameId}:`, error);
+    console.error(`[DynamoDB] Failed to update game ${gameId}:`, error);
     return null;
   }
 };
