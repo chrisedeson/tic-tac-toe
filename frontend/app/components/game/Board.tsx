@@ -14,6 +14,7 @@ const Board: React.FC = () => {
     currentPlayerId,
     playerSymbol,
     gameId,
+    opponent,
   } = useGame();
 
   const { user } = useAuth();
@@ -21,16 +22,28 @@ const Board: React.FC = () => {
 
   const isMyTurn = user?.id === currentPlayerId;
 
-const handleCellClick = (index: number) => {
-  console.log({ gameActive, boardIndex: board[index], winner, socket, gameId, isMyTurn });
-  if (!gameActive || board[index] || winner || !socket || !gameId || !isMyTurn) return;
+  const handleCellClick = (index: number) => {
+    console.log({ gameActive, boardIndex: board[index], winner, socket, gameId, isMyTurn });
+    if (!gameActive || board[index] || winner || !socket || !gameId || !isMyTurn) return;
 
+    socket.emit(EVENTS.GAME_MOVE_MAKE, {
+      gameId,
+      cellIndex: index,
+    });
+  };
 
-  socket.emit(EVENTS.GAME_MOVE_MAKE, {
-    gameId,
-    cellIndex: index,
-  });
-};
+  let winnerMessage = '';
+  if (!gameActive && winner) {
+    if (winner === 'Draw') {
+      winnerMessage = "It's a Draw!";
+    } else if (winner === user?.id) {
+      winnerMessage = 'You win!';
+    } else if (winner === opponent?.userId) {
+      winnerMessage = `${opponent.username} wins!`;
+    } else {
+      winnerMessage = `${winner} wins!`; // fallback
+    }
+  }
 
   if (!gameActive && !winner) {
     return <div className="text-center p-10 text-xl">Start a game or accept a challenge!</div>;
@@ -39,7 +52,7 @@ const handleCellClick = (index: number) => {
   if (!gameActive && winner) {
     return (
       <div className="text-center p-10 text-xl">
-        Game Over! {winner === 'Draw' ? "It's a Draw!" : `${winner} wins!`}
+        Game Over! {winnerMessage}
       </div>
     );
   }
@@ -50,7 +63,7 @@ const handleCellClick = (index: number) => {
         <Cell
           key={index}
           value={cellValue}
-          onClick={() => handleCellClick(index) }
+          onClick={() => handleCellClick(index)}
           disabled={!gameActive || !!cellValue || !!winner || !isMyTurn}
         />
       ))}
