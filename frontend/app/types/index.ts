@@ -51,3 +51,14 @@ export interface Message {
   channel: string;
   recipientId?: string;
 }
+
+export interface TimerProps {
+  timeLeft: number;
+  currentPlayerId: string | null;
+}
+
+export interface ChatWindowProps {
+  onClose: () => void;
+  onlineUsersForChat: OnlineUser[];
+  onChallengePlayer: (targetUser: OnlineUser) => void;
+}

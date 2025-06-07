@@ -354,6 +354,10 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
       }, 1000);
     }
 
+    else {
+      startMoveTimer(io, gameId); // ✅ Start timer for next player
+    }
+
     activeGames.set(gameId, game);
   });
 };
