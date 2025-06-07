@@ -5,16 +5,12 @@ import React, {
   useEffect,
   useContext,
 } from 'react';
-import type { ReactNode } from "react"
+import type { ReactNode } from "react";
 import api from '../services/api';
+import type { User } from '../types'; // **FIX**: Import the updated User type.
 
-interface User {
-  id: string;
-  username: string;
-  wins?: number;
-  losses?: number;
-  // Add other properties like wins, losses, etc.
-}
+// **REMOVED**: No longer need the local User interface definition.
+// interface User { ... }
 
 interface AuthContextType {
   user: User | null;
@@ -22,7 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (name: string) => Promise<void>;
   logout: () => void;
-  updateUser: (newData: Partial<User>) => void; // optional
+  updateUser: (newData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const response = await api.post('/auth/register', { name });
+      // The `userData` will now contain the full user object with scores.
       const userData: User = response.data.user;
       setUser(userData);
       localStorage.setItem('ticTacToeUser', JSON.stringify(userData));
@@ -62,7 +59,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('ticTacToeUser');
-    // TODO: Notify backend or socket if needed
   };
 
   const updateUser = (newData: Partial<User>) => {

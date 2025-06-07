@@ -1,5 +1,4 @@
 // frontend/app/contexts/GameContext.tsx
-// frontend/app/contexts/GameContext.tsx
 import React, {
   createContext,
   useContext,
@@ -7,6 +6,7 @@ import React, {
   useEffect,
   type ReactNode,
 } from "react";
+import axios from 'axios';  // Assuming you're using axios for API calls
 
 import type {
   BoardState,
@@ -28,7 +28,7 @@ const initialGameState: GameState = {
   opponent: null,
   gameActive: false,
   winner: null,
-  scores: { wins: 0, losses: 0, draws: 0 },
+  scores: { wins: 0, losses: 0, draws: 0 }, // Default score
   timeLeft: 10,
 };
 
@@ -46,12 +46,38 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
 
+  // Fetch user stats from backend on page load or after login
+  const fetchUserStats = async (userId: string) => {
+    try {
+      // Assuming you have an endpoint that provides user stats (replace with actual endpoint)
+      const response = await axios.get(`http://localhost:5000/api/user/${userId}/stats`);
+      const userStats = response.data;
+
+      setGameState((prev) => ({
+        ...prev,
+        scores: {
+          wins: userStats.wins || 0,
+          losses: userStats.losses || 0,
+          draws: userStats.draws || 0,
+        },
+      }));
+    } catch (error) {
+      console.error("Failed to fetch user stats:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user && user.id) {
+      fetchUserStats(user.id); // Fetch stats if user is logged in
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
     // --- Game started ---
     const handleGameStart = (data: {
-      gameID: string; // 👈 from backend (not camelCase)
+      gameID: string;
       board: BoardState;
       playerSymbol: PlayerSymbol;
       currentPlayerId: string;
@@ -61,7 +87,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setGameState((prev) => ({
         ...prev,
-        gameId: data.gameID, // ✅ Use correct key here
+        gameId: data.gameID,
         board: data.board,
         playerSymbol: data.playerSymbol,
         currentPlayerId: data.currentPlayerId,
@@ -125,21 +151,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [socket, isConnected, user]);
 
+  // Reset game, preserving score.
   const resetGame = () => {
     setGameState((prev) => ({
       ...initialGameState,
-      scores: { ...prev.scores },
+      scores: { ...prev.scores }, // Keep scores after reset.
     }));
   };
 
+  // Make a move in the game.
   const makeMove = (index: number) => {
-    if (!socket || !gameState.gameActive || gameState.board[index] !== null)
-      return;
+    if (!socket || !gameState.gameActive || gameState.board[index] !== null) return;
 
-    socket.emit(EVENTS.GAME_MOVE_MAKE, {
-      gameId: gameState.gameId,
-      cellIndex: index, // Make sure this matches backend
-    });
+    if (gameState.currentPlayerId === user?.id) {
+      socket.emit(EVENTS.GAME_MOVE_MAKE, {
+        gameId: gameState.gameId,
+        cellIndex: index,
+      });
+    }
   };
 
   return (

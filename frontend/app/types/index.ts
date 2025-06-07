@@ -1,8 +1,13 @@
 // frontend/app/types/index.ts
 
+// **FIX**: Update the User interface to include score properties.
+// This creates a single, consistent type for your user object across the app.
 export interface User {
   id: string;
   username: string;
+  wins: number;
+  losses: number;
+  draws: number;
 }
 
 export interface OnlineUser {
@@ -21,8 +26,8 @@ export type PlayerSymbol = 'X' | 'O';
 export type BoardState = (PlayerSymbol | null)[];
 
 export interface Opponent {
-    userId: string;
-    username:string;
+  userId: string;
+  username: string;
 }
 
 export interface GameState {
@@ -38,11 +43,11 @@ export interface GameState {
 }
 
 export interface Message {
-    id: string;
-    senderId: string;
-    senderUsername: string;
-    text: string;
-    timestamp: string;
-    channel: string;
-    recipientId?: string;
+  id: string;
+  senderId: string;
+  senderUsername: string;
+  text: string;
+  timestamp: string;
+  channel: string;
+  recipientId?: string;
 }
