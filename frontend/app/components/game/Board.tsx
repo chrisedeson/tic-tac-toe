@@ -1,10 +1,10 @@
 // frontend/app/components/game/Board.tsx
-import React from 'react';
-import Cell from './Cell';
-import { useGame } from '../../contexts/GameContext';
-import { useSocket } from '../../contexts/SocketContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { EVENTS } from '../../../../backend/src/socket/events';
+import React from "react";
+import Cell from "./Cell";
+import { useGame } from "../../contexts/GameContext";
+import { useSocket } from "../../contexts/SocketContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { EVENTS } from "../../../../backend/src/socket/events";
 
 const Board: React.FC = () => {
   const {
@@ -23,8 +23,23 @@ const Board: React.FC = () => {
   const isMyTurn = user?.userID === currentPlayerId;
 
   const handleCellClick = (index: number) => {
-    console.log({ gameActive, boardIndex: board[index], winner, socket, gameId, isMyTurn });
-    if (!gameActive || board[index] || winner || !socket || !gameId || !isMyTurn) return;
+    console.log({
+      gameActive,
+      boardIndex: board[index],
+      winner,
+      socket,
+      gameId,
+      isMyTurn,
+    });
+    if (
+      !gameActive ||
+      board[index] ||
+      winner ||
+      !socket ||
+      !gameId ||
+      !isMyTurn
+    )
+      return;
 
     socket.emit(EVENTS.GAME_MOVE_MAKE, {
       gameId,
@@ -32,12 +47,12 @@ const Board: React.FC = () => {
     });
   };
 
-  let winnerMessage = '';
+  let winnerMessage = "";
   if (!gameActive && winner) {
-    if (winner === 'Draw') {
+    if (winner === "Draw") {
       winnerMessage = "It's a Draw!";
     } else if (winner === user?.userID) {
-      winnerMessage = 'You win!';
+      winnerMessage = "You win!";
     } else if (winner === opponent?.userId) {
       winnerMessage = `${opponent.username} wins!`;
     } else {
@@ -46,14 +61,16 @@ const Board: React.FC = () => {
   }
 
   if (!gameActive && !winner) {
-    return <div className="text-center p-10 text-xl">Start a game or accept a challenge!</div>;
+    return (
+      <div className="text-center p-10 text-xl">
+        Start a game or accept a challenge!
+      </div>
+    );
   }
 
   if (!gameActive && winner) {
     return (
-      <div className="text-center p-10 text-xl">
-        Game Over! {winnerMessage}
-      </div>
+      <div className="text-center p-10 text-xl">Game Over! {winnerMessage}</div>
     );
   }
 
