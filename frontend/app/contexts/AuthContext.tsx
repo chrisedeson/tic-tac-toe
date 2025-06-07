@@ -1,4 +1,5 @@
 // frontend/app/contexts/AuthContext.tsx
+// frontend/app/contexts/AuthContext.tsx
 import React, {
   createContext,
   useState,
@@ -7,10 +8,7 @@ import React, {
 } from 'react';
 import type { ReactNode } from "react";
 import api from '../services/api';
-import type { User } from '../types'; // **FIX**: Import the updated User type.
-
-// **REMOVED**: No longer need the local User interface definition.
-// interface User { ... }
+import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -31,20 +29,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('ticTacToeUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const validateStoredUser = async () => {
+      const storedUser = localStorage.getItem('ticTacToeUser');
+      if (!storedUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const parsedUser: User = JSON.parse(storedUser);
+        const userId = parsedUser.userID;
+
+        if (!userId) {
+          console.warn('No userID found in stored user, clearing localStorage');
+          localStorage.removeItem('ticTacToeUser');
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await api.get(`/users/${userId}`);
+
+        if (response.data?.user) {
+          setUser(response.data.user);
+        } else {
+          console.warn('User not found in DB, clearing localStorage');
+          localStorage.removeItem('ticTacToeUser');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('User validation failed, clearing local user:', error);
+        localStorage.removeItem('ticTacToeUser');
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    validateStoredUser();
   }, []);
 
   const login = async (name: string) => {
     setIsLoading(true);
     try {
       const response = await api.post('/auth/register', { name });
-      // The `userData` will now contain the full user object with scores.
       const userData: User = response.data.user;
       setUser(userData);
       localStorage.setItem('ticTacToeUser', JSON.stringify(userData));

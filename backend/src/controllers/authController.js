@@ -40,7 +40,7 @@ exports.registerOrLoginUser = async (req, res) => {
     res.status(201).json({
        message: 'User registered/updated successfully',
        user: {
-         id: userItem.userID,
+         userID: userItem.userID,
          username: userItem.username,
          wins: userItem.wins,
          losses: userItem.losses,

@@ -3,7 +3,7 @@
 // **FIX**: Update the User interface to include score properties.
 // This creates a single, consistent type for your user object across the app.
 export interface User {
-  id: string;
+  userID: string;
   username: string;
   wins: number;
   losses: number;
