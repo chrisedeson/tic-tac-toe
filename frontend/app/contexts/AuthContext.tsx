@@ -1,12 +1,19 @@
 // frontend/app/contexts/AuthContext.tsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import type { ReactNode } from 'react'
-import api from '../services/api'; // Your API service
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+} from 'react';
+import type { ReactNode } from "react"
+import api from '../services/api';
 
 interface User {
   id: string;
   username: string;
-  // other properties like wins, losses, etc. can be added later
+  wins?: number;
+  losses?: number;
+  // Add other properties like wins, losses, etc.
 }
 
 interface AuthContextType {
@@ -15,36 +22,38 @@ interface AuthContextType {
   isLoading: boolean;
   login: (name: string) => Promise<void>;
   logout: () => void;
+  updateUser: (newData: Partial<User>) => void; // optional
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    // Attempt to load user from localStorage (e.g., if you store a session token or basic info)
-    if (typeof window !== 'undefined') {
     const storedUser = localStorage.getItem('ticTacToeUser');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-  }
-  setIsLoading(false);
-}, []);
+    setIsLoading(false);
+  }, []);
 
   const login = async (name: string) => {
     setIsLoading(true);
     try {
       const response = await api.post('/auth/register', { name });
-      const userData: User = response.data.user; // Assuming backend returns { user: {id, username} }
+      const userData: User = response.data.user;
       setUser(userData);
       localStorage.setItem('ticTacToeUser', JSON.stringify(userData));
     } catch (error) {
-      console.error("Login failed:", error);
-      // Handle error (e.g., show notification)
-      throw error; // Re-throw to allow component to handle it
+      console.error('Login failed:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -53,11 +62,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     localStorage.removeItem('ticTacToeUser');
-    // Notify backend/socket that user is logging out if necessary
+    // TODO: Notify backend or socket if needed
+  };
+
+  const updateUser = (newData: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...newData };
+    setUser(updatedUser);
+    localStorage.setItem('ticTacToeUser', JSON.stringify(updatedUser));
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        logout,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -65,7 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

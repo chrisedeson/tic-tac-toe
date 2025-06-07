@@ -1,8 +1,9 @@
 // frontend/app/contexts/SocketContext.tsx
 import React, { createContext, useEffect, useState, useContext } from 'react';
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 import io, { Socket } from 'socket.io-client';
-import { useAuth } from './AuthContext'; // To get user ID for socket query
+import { useAuth } from './AuthContext';
+import { EVENTS } from '../../../backend/src/socket/events'; // Optional: use shared constants
 
 interface SocketContextType {
   socket: Socket | null;
@@ -21,26 +22,30 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     if (isAuthenticated && user?.id && user?.username) {
       const newSocket = io(SOCKET_URL, {
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        query: { userId: user.id, username: user.username } // Send user info on connection
+        reconnectionAttempts: 3,
+        reconnectionDelay: 2000,
+        query: {
+          userId: user.id,
+          username: user.username,
+        },
       });
 
       newSocket.on('connect', () => {
         setIsConnected(true);
-        console.log('Socket connected:', newSocket.id);
-        // Emit USER_ONLINE directly here as query params are for initial handshake
-        newSocket.emit('user:online', { userId: user.id, username: user.username });
+        console.log('✅ Socket connected:', newSocket.id);
+        newSocket.emit(EVENTS.USER_ONLINE, {
+          userId: user.id,
+          username: user.username,
+        });
       });
 
       newSocket.on('disconnect', (reason) => {
         setIsConnected(false);
-        console.log('Socket disconnected:', reason);
-        // USER_OFFLINE handled server-side on disconnect
+        console.warn('⚠️ Socket disconnected:', reason);
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('❌ Socket connection error:', error);
         setIsConnected(false);
       });
 
@@ -50,12 +55,13 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         newSocket.disconnect();
         setIsConnected(false);
       };
-    } else if (socket) { // If user logs out, disconnect existing socket
-        socket.disconnect();
-        setSocket(null);
-        setIsConnected(false);
+    } else if (socket) {
+      // Logout or auth cleared
+      socket.disconnect();
+      setSocket(null);
+      setIsConnected(false);
     }
-  }, [isAuthenticated, user]); // Reconnect if user changes
+  }, [isAuthenticated, user]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
@@ -66,7 +72,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useSocket must be used within a SocketProvider');
   }
   return context;

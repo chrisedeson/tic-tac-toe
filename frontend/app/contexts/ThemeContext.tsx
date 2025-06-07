@@ -1,6 +1,6 @@
 // frontend/app/contexts/ThemeContext.tsx
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
 interface ThemeContextType {
   darkMode: boolean;
@@ -11,16 +11,15 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-  if (typeof window !== 'undefined') {
-    const storedPreference = localStorage.getItem('darkMode');
-    if (storedPreference !== null) {
-      return JSON.parse(storedPreference);
+    if (typeof window !== 'undefined') {
+      const storedPreference = localStorage.getItem('darkMode');
+      if (storedPreference !== null) {
+        return JSON.parse(storedPreference);
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  return false; // fallback if SSR
-});
-
+    return false;
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -32,22 +31,22 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Listen for system changes if no manual override
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      // Only update if no manual preference is stored or if user wants to sync with system
       if (localStorage.getItem('darkMode') === null) {
         setDarkMode(e.matches);
       }
     };
     mediaQuery.addEventListener('change', handleChange);
+
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-
   const toggleDarkMode = () => {
-    setDarkMode(prevMode => !prevMode);
+    setDarkMode(prev => !prev);
   };
 
   return (
@@ -59,7 +58,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;

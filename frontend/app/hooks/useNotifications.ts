@@ -1,6 +1,7 @@
 // frontend/app/hooks/useNotifications.ts
-import { toast } from 'react-toastify';
-import type { ToastOptions } from 'react-toastify'
+// frontend/app/hooks/useNotifications.ts
+import { toast, type ToastOptions, type Id } from 'react-toastify';
+import type { ReactNode } from 'react';
 
 interface NotificationOptions extends ToastOptions {}
 
@@ -21,11 +22,26 @@ export const useNotifications = () => {
     toast.warn(message, options);
   };
 
-  // For challenges or interactive toasts
-  const showInteractive = (content: React.ReactNode, options?: NotificationOptions) => {
-    toast(content, { ...options, autoClose: false, closeOnClick: false });
+  const showInteractive = (content: ReactNode, options?: NotificationOptions) => {
+    toast(content, {
+      ...options,
+      autoClose: false,
+      closeOnClick: false,
+      draggable: false,
+      type: 'default',
+    });
   };
 
+  const dismiss = (id?: Id) => {
+    toast.dismiss(id);
+  };
 
-  return { showSuccess, showError, showInfo, showWarning, showInteractive };
+  return {
+    showSuccess,
+    showError,
+    showInfo,
+    showWarning,
+    showInteractive,
+    dismiss,
+  };
 };

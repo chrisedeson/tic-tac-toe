@@ -1,11 +1,12 @@
 // frontend/app/contexts/GameContext.tsx
+// frontend/app/contexts/GameContext.tsx
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
   type ReactNode,
-} from 'react';
+} from "react";
 
 import type {
   BoardState,
@@ -13,12 +14,12 @@ import type {
   Opponent,
   PlayerSymbol,
   Score,
-} from '../types';
-import { useSocket } from './SocketContext';
-import { useAuth } from './AuthContext';
-import { EVENTS } from '../../../backend/src/socket/events'; // ✅ Adjust this if needed
+} from "../types";
+import { useSocket } from "./SocketContext";
+import { useAuth } from "./AuthContext";
+import { EVENTS } from "../../../backend/src/socket/events";
 
-// Initial empty game state
+// Initial game state
 const initialGameState: GameState = {
   gameId: null,
   board: Array(9).fill(null),
@@ -31,15 +32,15 @@ const initialGameState: GameState = {
   timeLeft: 10,
 };
 
-// Context type definition
+// Context type
 interface GameContextType extends GameState {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   resetGame: () => void;
+  makeMove: (index: number) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-// GameProvider wraps your app (or part of it)
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const { socket, isConnected } = useSocket();
@@ -48,17 +49,19 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
-    // 1. GAME_START
+    // --- Game started ---
     const handleGameStart = (data: {
-      gameId: string;
+      gameID: string; // 👈 from backend (not camelCase)
       board: BoardState;
       playerSymbol: PlayerSymbol;
       currentPlayerId: string;
       opponent: Opponent;
     }) => {
-      setGameState(prev => ({
+      console.log("GAME_START received:", data);
+
+      setGameState((prev) => ({
         ...prev,
-        gameId: data.gameId,
+        gameId: data.gameID, // ✅ Use correct key here
         board: data.board,
         playerSymbol: data.playerSymbol,
         currentPlayerId: data.currentPlayerId,
@@ -69,12 +72,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }));
     };
 
-    // 2. GAME_STATE_UPDATE
+    // --- Game state update (after move) ---
     const handleGameStateUpdate = (data: {
       board: BoardState;
       currentPlayerId: string;
     }) => {
-      setGameState(prev => ({
+      setGameState((prev) => ({
         ...prev,
         board: data.board,
         currentPlayerId: data.currentPlayerId,
@@ -82,21 +85,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }));
     };
 
-    // 3. GAME_TIMER_UPDATE
+    // --- Timer update ---
     const handleTimerUpdate = (data: { timeLeft: number }) => {
-      setGameState(prev => ({
+      setGameState((prev) => ({
         ...prev,
         timeLeft: data.timeLeft,
       }));
     };
 
-    // 4. GAME_END
+    // --- Game ended ---
     const handleGameEnd = (data: { winnerId: string; reason: string }) => {
-      setGameState(prev => {
+      setGameState((prev) => {
         const updatedScores: Score =
-          data.winnerId === 'Draw'
+          data.winnerId === "Draw"
             ? { ...prev.scores, draws: prev.scores.draws + 1 }
-            : data.winnerId === user.id
+            : data.winnerId === user?.id
             ? { ...prev.scores, wins: prev.scores.wins + 1 }
             : { ...prev.scores, losses: prev.scores.losses + 1 };
 
@@ -122,26 +125,36 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [socket, isConnected, user]);
 
-  // Only resets board and round-specific info, keeps scores
   const resetGame = () => {
-    setGameState(prev => ({
+    setGameState((prev) => ({
       ...initialGameState,
       scores: { ...prev.scores },
     }));
   };
 
+  const makeMove = (index: number) => {
+    if (!socket || !gameState.gameActive || gameState.board[index] !== null)
+      return;
+
+    socket.emit(EVENTS.GAME_MOVE_MAKE, {
+      gameId: gameState.gameId,
+      cellIndex: index, // Make sure this matches backend
+    });
+  };
+
   return (
-    <GameContext.Provider value={{ ...gameState, setGameState, resetGame }}>
+    <GameContext.Provider
+      value={{ ...gameState, setGameState, resetGame, makeMove }}
+    >
       {children}
     </GameContext.Provider>
   );
 };
 
-// Hook to use the context
 export const useGame = () => {
   const context = useContext(GameContext);
   if (!context) {
-    throw new Error('useGame must be used within a GameProvider');
+    throw new Error("useGame must be used within a GameProvider");
   }
   return context;
 };

@@ -1,10 +1,14 @@
 // backend/src/socket/handlers/gameHandler.js
-const { v4: uuidv4 } = require('uuid');
-const { EVENTS } = require('../events');
-const gameService = require('../../services/gameService');
-const { docClient } = require('../../config/db');
-const config = require('../../config');
-const { GetCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { v4: uuidv4 } = require("uuid");
+const { EVENTS } = require("../events");
+const gameService = require("../../services/gameService");
+const { docClient } = require("../../config/db");
+const config = require("../../config");
+const {
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+} = require("@aws-sdk/lib-dynamodb");
 
 const activeGames = new Map();
 
@@ -26,10 +30,10 @@ const updateGameInDB = async (gameId, updateData) => {
   const params = {
     TableName: config.aws.gamesTable,
     Key: { userID, gameID: gameId },
-    UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
+    UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
     ExpressionAttributeNames: expressionAttributeNames,
     ExpressionAttributeValues: expressionAttributeValues,
-    ReturnValues: 'ALL_NEW',
+    ReturnValues: "ALL_NEW",
   };
 
   try {
@@ -53,15 +57,17 @@ const createNewGame = async ({ player1, player2 }) => {
     playerO: player2,
     board: Array(9).fill(null),
     currentPlayerId: player1.userId,
-    status: 'active',
+    status: "active",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  await docClient.send(new PutCommand({
-    TableName: config.aws.gamesTable,
-    Item: game,
-  }));
+  await docClient.send(
+    new PutCommand({
+      TableName: config.aws.gamesTable,
+      Item: game,
+    })
+  );
 
   activeGames.set(gameID, { ...game, moveTimer: null });
 
@@ -79,19 +85,19 @@ const startGame = (io, game) => {
       userId: game.playerO.userId,
       username: game.playerO.username,
     },
-    playerSymbol: 'X',
+    playerSymbol: "X",
   };
 
   io.to(game.playerX.socketId).emit(EVENTS.GAME_START, payload);
 
-  if (game.playerO.userId !== 'christopher') {
+  if (game.playerO.userId !== "christopher") {
     io.to(game.playerO.socketId).emit(EVENTS.GAME_START, {
       ...payload,
       opponent: {
         userId: game.playerX.userId,
         username: game.playerX.username,
       },
-      playerSymbol: 'O',
+      playerSymbol: "O",
     });
   }
 };
@@ -99,7 +105,7 @@ const startGame = (io, game) => {
 // ---------------------- Move Timer ----------------------
 const startMoveTimer = (io, gameID) => {
   const game = activeGames.get(gameID);
-  if (!game || game.status !== 'active') return;
+  if (!game || game.status !== "active") return;
 
   if (game.moveTimer) {
     clearInterval(game.moveTimer);
@@ -109,9 +115,15 @@ const startMoveTimer = (io, gameID) => {
   let timeLeft = 10;
 
   const emitTime = () => {
-    io.to(game.playerX.socketId).emit(EVENTS.GAME_TIMER_UPDATE, { timeLeft, currentPlayerId: game.currentPlayerId });
+    io.to(game.playerX.socketId).emit(EVENTS.GAME_TIMER_UPDATE, {
+      timeLeft,
+      currentPlayerId: game.currentPlayerId,
+    });
     if (game.playerO.socketId) {
-      io.to(game.playerO.socketId).emit(EVENTS.GAME_TIMER_UPDATE, { timeLeft, currentPlayerId: game.currentPlayerId });
+      io.to(game.playerO.socketId).emit(EVENTS.GAME_TIMER_UPDATE, {
+        timeLeft,
+        currentPlayerId: game.currentPlayerId,
+      });
     }
   };
 
@@ -125,11 +137,12 @@ const startMoveTimer = (io, gameID) => {
       clearInterval(game.moveTimer);
       game.moveTimer = null;
 
-      const winnerId = game.currentPlayerId === game.playerX.userId
-        ? game.playerO.userId
-        : game.playerX.userId;
+      const winnerId =
+        game.currentPlayerId === game.playerX.userId
+          ? game.playerO.userId
+          : game.playerX.userId;
 
-      endGame(io, gameID, winnerId, 'timeout');
+      endGame(io, gameID, winnerId, "timeout");
     }
   }, 1000);
 
@@ -137,9 +150,9 @@ const startMoveTimer = (io, gameID) => {
 };
 
 // ---------------------- End Game ----------------------
-const endGame = async (io, gameID, winnerId, reason = 'win') => {
+const endGame = async (io, gameID, winnerId, reason = "win") => {
   const game = activeGames.get(gameID);
-  if (!game || game.status === 'completed') return;
+  if (!game || game.status === "completed") return;
 
   if (game.moveTimer) {
     clearInterval(game.moveTimer);
@@ -153,7 +166,7 @@ const endGame = async (io, gameID, winnerId, reason = 'win') => {
 
   await updateGameInDB(gameID, {
     userID: game.userID,
-    status: 'completed',
+    status: "completed",
     winner: winnerId,
     updatedAt: new Date().toISOString(),
   });
@@ -165,7 +178,7 @@ const endGame = async (io, gameID, winnerId, reason = 'win') => {
 module.exports.initGameHandler = (io, socket, onlineUsers) => {
   socket.on(EVENTS.CHALLENGE_SEND, ({ toUserId }) => {
     const fromUser = onlineUsers.get(socket.id);
-    const toUser = [...onlineUsers.values()].find(u => u.userId === toUserId);
+    const toUser = [...onlineUsers.values()].find((u) => u.userId === toUserId);
     if (fromUser && toUser) {
       io.to(toUser.socketId).emit(EVENTS.CHALLENGE_RECEIVE, { fromUser });
     }
@@ -173,7 +186,7 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
 
   socket.on(EVENTS.CHALLENGE_RESPONSE, async ({ toUserId, accepted }) => {
     const fromUser = onlineUsers.get(socket.id);
-    const toUser = [...onlineUsers.values()].find(u => u.userId === toUserId);
+    const toUser = [...onlineUsers.values()].find((u) => u.userId === toUserId);
     if (!fromUser || !toUser) return;
 
     if (accepted) {
@@ -195,22 +208,37 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
     const fromUser = onlineUsers.get(socket.id);
     if (!fromUser) return;
 
-    const christopher = { userId: 'christopher', username: 'Christopher', socketId: null };
-    const game = await createNewGame({ player1: fromUser, player2: christopher });
+    const christopher = {
+      userId: "christopher",
+      username: "Christopher",
+      socketId: null,
+    };
+    const game = await createNewGame({
+      player1: fromUser,
+      player2: christopher,
+    });
 
     startGame(io, game);
     startMoveTimer(io, game.gameID);
   });
 
   socket.on(EVENTS.GAME_MOVE_MAKE, async ({ gameId, cellIndex }) => {
+    console.log(`[MOVE_MAKE] From ${socket.id}: gameId=${gameId}, cellIndex=${cellIndex}`);
     const game = activeGames.get(gameId);
     const player = onlineUsers.get(socket.id);
 
-    if (!game || !player || player.userId !== game.currentPlayerId || game.board[cellIndex] !== null) return;
+    if (
+      !game ||
+      !player ||
+      !player.userId ||
+      player.userId !== game.currentPlayerId
+    )
+      return;
 
-    const symbol = player.userId === game.playerX.userId ? 'X' : 'O';
+    const symbol = player.userId === game.playerX.userId ? "X" : "O";
     game.board[cellIndex] = symbol;
-    game.currentPlayerId = symbol === 'X' ? game.playerO.userId : game.playerX.userId;
+    game.currentPlayerId =
+      symbol === "X" ? game.playerO.userId : game.playerX.userId;
     game.updatedAt = new Date().toISOString();
 
     if (game.moveTimer) {
@@ -220,12 +248,13 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
 
     const winnerSymbol = gameService.calculateWinner(game.board);
     if (winnerSymbol) {
-      const winnerId = winnerSymbol === 'X' ? game.playerX.userId : game.playerO.userId;
+      const winnerId =
+        winnerSymbol === "X" ? game.playerX.userId : game.playerO.userId;
       return endGame(io, gameId, winnerId);
     }
 
     if (gameService.isDraw(game.board)) {
-      return endGame(io, gameId, 'Draw', 'draw');
+      return endGame(io, gameId, "Draw", "draw");
     }
 
     io.to(game.playerX.socketId).emit(EVENTS.GAME_STATE_UPDATE, {
@@ -239,26 +268,29 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
       });
     }
 
-    if (game.currentPlayerId === 'christopher') {
+    if (game.currentPlayerId === "christopher") {
       setTimeout(() => {
-        const aiMove = gameService.getChristopherMove(game.board);
-        game.board[aiMove] = 'O';
-        game.currentPlayerId = game.playerX.userId;
-        game.updatedAt = new Date().toISOString();
+        const latestGame = activeGames.get(gameId);
+        if (!latestGame || latestGame.status !== "active") return; // 💥 Guard to avoid acting on ended game
 
-        const aiWinner = gameService.calculateWinner(game.board);
-        if (aiWinner) return endGame(io, gameId, 'christopher');
-        if (gameService.isDraw(game.board)) return endGame(io, gameId, 'Draw', 'draw');
+        const aiMove = gameService.getChristopherMove(latestGame.board);
+        latestGame.board[aiMove] = "O";
+        latestGame.currentPlayerId = latestGame.playerX.userId;
+        latestGame.updatedAt = new Date().toISOString();
 
-        io.to(game.playerX.socketId).emit(EVENTS.GAME_STATE_UPDATE, {
-          board: game.board,
-          currentPlayerId: game.currentPlayerId,
+        const aiWinner = gameService.calculateWinner(latestGame.board);
+        if (aiWinner) return endGame(io, gameId, "christopher");
+        if (gameService.isDraw(latestGame.board))
+          return endGame(io, gameId, "Draw", "draw");
+
+        io.to(latestGame.playerX.socketId).emit(EVENTS.GAME_STATE_UPDATE, {
+          board: latestGame.board,
+          currentPlayerId: latestGame.currentPlayerId,
         });
 
         startMoveTimer(io, gameId);
+        activeGames.set(gameId, latestGame); // 👈 Remember to update activeGames
       }, 1000);
-    } else {
-      startMoveTimer(io, gameId);
     }
 
     activeGames.set(gameId, game);

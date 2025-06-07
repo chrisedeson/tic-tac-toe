@@ -41,21 +41,21 @@ const GamePage: React.FC = () => {
   const [showNameDialog, setShowNameDialog] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
-  const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
+  const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
 
-  // If not authenticated yet, show the name dialog
+  // Show name dialog if not authenticated
   useEffect(() => {
     if (!authLoading) {
       setShowNameDialog(!isAuthenticated);
     }
   }, [isAuthenticated, authLoading]);
 
-  // Once we mount, fetch every user to initialize “offlinePlayers”
+  // Fetch all users on mount (for offline user list base)
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
         const response = await api.get('/users');
-        setOfflinePlayers(response.data || []);
+        setAllUsers(response.data || []);
       } catch (error) {
         console.error('Failed to fetch user list', error);
       }
@@ -63,27 +63,26 @@ const GamePage: React.FC = () => {
     fetchAllUsers();
   }, []);
 
-  // Whenever socket connects, ask for the real “online” list and register handlers
+  // Update online and offline users based on socket events
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
-    // 1) Immediately ask server: “Give me everyone who is online.”
     socket.emit(EVENTS.GET_USER_LIST);
 
-    // 2) Listen for the updated list of online users
     const handleUserListUpdate = (users: OnlineUser[]) => {
-      // Remove ourselves from that list, and keep them in “onlinePlayers”
-      setOnlinePlayers(users.filter((u) => u.userId !== user.id));
+      // Exclude current user from online list
+      const filteredOnline = users.filter((u) => u.userId !== user.id);
+      setOnlinePlayers(filteredOnline);
 
-      // Anyone who is not in the “online” list, is implicitly “offline”
-      setOfflinePlayers((prevOffline) =>
-        prevOffline.filter(
-          (off) => !users.some((on) => on.userId === off.userId)
-        )
+      // Offline = allUsers minus online users and minus self
+      const offline = allUsers.filter(
+        (u) =>
+          u.userId !== user.id &&
+          !filteredOnline.some((online) => online.userId === u.userId)
       );
+      setOfflinePlayers(offline);
     };
 
-    // 3) Listen for inbound “someone challenges you” to Christopher or to another human
     const handleChallengeReceive = ({
       fromUser,
     }: {
@@ -95,7 +94,7 @@ const GamePage: React.FC = () => {
             <p>
               <strong>{fromUser.username}</strong> challenges you to a game!
             </p>
-            <div style={{ marginTop: '10px' }}>
+            <div style={{ marginTop: 10 }}>
               <button
                 onClick={() => {
                   socket.emit(EVENTS.CHALLENGE_RESPONSE, {
@@ -105,12 +104,12 @@ const GamePage: React.FC = () => {
                   closeToast && closeToast();
                 }}
                 style={{
-                  marginRight: '8px',
+                  marginRight: 8,
                   padding: '6px 12px',
                   background: 'green',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '4px',
+                  borderRadius: 4,
                   cursor: 'pointer',
                 }}
               >
@@ -129,7 +128,7 @@ const GamePage: React.FC = () => {
                   background: 'crimson',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '4px',
+                  borderRadius: 4,
                   cursor: 'pointer',
                 }}
               >
@@ -145,13 +144,16 @@ const GamePage: React.FC = () => {
     socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
     socket.on(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
 
+    // Cleanup listeners on unmount or deps change
     return () => {
       socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
       socket.off(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
     };
-  }, [socket, isConnected, user]);
+  }, [socket, isConnected, user, allUsers]);
 
-  // Called when you click “Play vs Christopher” or click “Challenge (other human)”
+  const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
+
+  // Challenge a player or Christopher
   const handleChallengePlayer = (targetUser: OnlineUser) => {
     if (!user || !socket) {
       toast.error('You must be logged in to challenge players.');
@@ -168,7 +170,6 @@ const GamePage: React.FC = () => {
     }
   };
 
-  // If auth is still loading, show a simple spinner
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -177,7 +178,6 @@ const GamePage: React.FC = () => {
     );
   }
 
-  // If not yet authenticated, force the NameInputDialog
   if (showNameDialog && !isAuthenticated) {
     return <NameInputDialog setShowDialog={setShowNameDialog} />;
   }
@@ -191,19 +191,16 @@ const GamePage: React.FC = () => {
       <Header />
 
       <main className="flex-grow flex flex-col md:flex-row p-4 md:p-6 gap-6">
-        {/* ─── Left Side: Game Board & Score (stack on small screens) ───────────────────────── */}
+        {/* Left side: game */}
         <div className="flex-grow md:w-[70%] flex flex-col items-center">
-          {/* If a game is active, show the timer: */}
           {gameActive && (
             <div className="w-full max-w-md mb-4">
               <Timer timeLeft={timeLeft} currentPlayerId={currentPlayerId} />
             </div>
           )}
 
-          {/* The tic-tac-toe board itself */}
           <Board />
 
-          {/* If no gameActive *and* no winner, show “Challenge a player” */}
           {!gameActive && !winner && (
             <div className="mt-8 flex flex-col items-center space-y-4 md:space-y-0 md:space-x-4 md:flex-row">
               <p className="text-lg">
@@ -223,16 +220,15 @@ const GamePage: React.FC = () => {
             </div>
           )}
 
-          {/* If there is a winner, show the modal */}
           {winner && <GameEndModal />}
 
-          {/* On mobile only: show scoreboard underneath */}
+          {/* Mobile scoreboard */}
           <div className="md:hidden mt-6 w-full max-w-md">
             <Scoreboard scores={scores} />
           </div>
         </div>
 
-        {/* ─── Right Side: Scoreboard (desktop) + Players List ───────────────────────────────── */}
+        {/* Right side: scoreboard + user lists */}
         <aside className="w-full md:w-[30%] lg:w-[25%] p-4 dark:bg-gray-800 bg-gray-100 rounded-lg shadow">
           <div className="hidden md:block mb-6">
             <Scoreboard scores={scores} />
