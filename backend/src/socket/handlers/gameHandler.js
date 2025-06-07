@@ -177,11 +177,13 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
     game.moveTimer = null;
   }
 
+  // Notify both players about the game result
   io.to(game.playerX.socketId).emit(EVENTS.GAME_END, { winnerId, reason });
   if (game.playerO.socketId) {
     io.to(game.playerO.socketId).emit(EVENTS.GAME_END, { winnerId, reason });
   }
 
+  // Update the game status in the database
   await updateGameInDB(gameID, {
     userID: game.userID,
     status: "completed",
@@ -189,8 +191,49 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
     updatedAt: new Date().toISOString(),
   });
 
+  // Update wins, losses, and draws for both players
+  const updatePlayerStats = async (userId, result) => {
+  const userParams = {
+    TableName: config.aws.usersTable,
+    Key: { userID: userId },
+    UpdateExpression: `
+      SET 
+        wins = if_not_exists(wins, :zero) + :wins,
+        losses = if_not_exists(losses, :zero) + :losses,
+        draws = if_not_exists(draws, :zero) + :draws
+    `,
+    ExpressionAttributeValues: {
+      ':wins': result === 'win' ? 1 : 0,
+      ':losses': result === 'loss' ? 1 : 0,
+      ':draws': result === 'draw' ? 1 : 0,
+      ':zero': 0  // Ensure the field gets initialized to 0 if it doesn't exist
+    },
+  };
+
+  try {
+    await docClient.send(new UpdateCommand(userParams));
+    console.log(`Player ${userId} stats updated: ${result}`);
+  } catch (error) {
+    console.error(`Failed to update player ${userId} stats:`, error);
+  }
+};
+
+
+  // Determine the results and update stats for both players
+  if (winnerId === "Draw") {
+    // If it's a draw, update both players
+    await updatePlayerStats(game.playerX.userId, 'draw');
+    await updatePlayerStats(game.playerO.userId, 'draw');
+  } else {
+    // If there is a winner, update winner and loser stats
+    const loserId = winnerId === game.playerX.userId ? game.playerO.userId : game.playerX.userId;
+    await updatePlayerStats(winnerId, 'win');
+    await updatePlayerStats(loserId, 'loss');
+  }
+
   activeGames.delete(gameID);
 };
+
 
 // ---------------------- Game Handler Initialization ----------------------
 module.exports.initGameHandler = (io, socket, onlineUsers) => {
