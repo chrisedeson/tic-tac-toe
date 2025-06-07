@@ -67,8 +67,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    if (user && user.id) {
-      fetchUserStats(user.id); // Fetch stats if user is logged in
+    if (user && user.userID) {
+      fetchUserStats(user.userID); // Fetch stats if user is logged in
     }
   }, [user]);
 
@@ -125,7 +125,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const updatedScores: Score =
           data.winnerId === "Draw"
             ? { ...prev.scores, draws: prev.scores.draws + 1 }
-            : data.winnerId === user?.id
+            : data.winnerId === user?.userID
             ? { ...prev.scores, wins: prev.scores.wins + 1 }
             : { ...prev.scores, losses: prev.scores.losses + 1 };
 
@@ -163,7 +163,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const makeMove = (index: number) => {
     if (!socket || !gameState.gameActive || gameState.board[index] !== null) return;
 
-    if (gameState.currentPlayerId === user?.id) {
+    if (gameState.currentPlayerId === user?.userID) {
       socket.emit(EVENTS.GAME_MOVE_MAKE, {
         gameId: gameState.gameId,
         cellIndex: index,

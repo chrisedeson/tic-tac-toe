@@ -20,7 +20,7 @@ const Board: React.FC = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
 
-  const isMyTurn = user?.id === currentPlayerId;
+  const isMyTurn = user?.userID === currentPlayerId;
 
   const handleCellClick = (index: number) => {
     console.log({ gameActive, boardIndex: board[index], winner, socket, gameId, isMyTurn });
@@ -36,7 +36,7 @@ const Board: React.FC = () => {
   if (!gameActive && winner) {
     if (winner === 'Draw') {
       winnerMessage = "It's a Draw!";
-    } else if (winner === user?.id) {
+    } else if (winner === user?.userID) {
       winnerMessage = 'You win!';
     } else if (winner === opponent?.userId) {
       winnerMessage = `${opponent.username} wins!`;

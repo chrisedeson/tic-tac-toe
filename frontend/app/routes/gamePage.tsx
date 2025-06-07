@@ -71,13 +71,13 @@ const GamePage: React.FC = () => {
 
     const handleUserListUpdate = (users: OnlineUser[]) => {
       // Exclude current user from online list
-      const filteredOnline = users.filter((u) => u.userId !== user.id);
+      const filteredOnline = users.filter((u) => u.userId !== user.userID);
       setOnlinePlayers(filteredOnline);
 
       // Offline = allUsers minus online users and minus self
       const offline = allUsers.filter(
         (u) =>
-          u.userId !== user.id &&
+          u.userId !== user.userID &&
           !filteredOnline.some((online) => online.userId === u.userId)
       );
       setOfflinePlayers(offline);

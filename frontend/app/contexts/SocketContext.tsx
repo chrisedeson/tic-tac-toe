@@ -20,12 +20,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { user, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated && user?.id && user?.username) {
+    if (isAuthenticated && user?.userID && user?.username) {
       const newSocket = io(SOCKET_URL, {
         reconnectionAttempts: 3,
         reconnectionDelay: 2000,
         query: {
-          userId: user.id,
+          userId: user.userID,
           username: user.username,
         },
       });
@@ -34,7 +34,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setIsConnected(true);
         console.log('✅ Socket connected:', newSocket.id);
         newSocket.emit(EVENTS.USER_ONLINE, {
-          userId: user.id,
+          userId: user.userID,
           username: user.username,
         });
       });
