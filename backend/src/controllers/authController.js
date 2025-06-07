@@ -13,23 +13,16 @@ exports.registerOrLoginUser = async (req, res) => {
   const sanitizedName = name.trim();
 
   try {
-    // For simplicity, we'll use name as a key. In a real app, ensure uniqueness or use generated IDs.
-    // Let's assume username should be unique for this example.
-    // A better approach would be an email/password or a unique generated ID stored client-side.
-    // Here, we'll create a user if not exists or return existing user data.
-
-    // This is a simplified lookup; for actual unique username check, a GSI on 'name' might be needed
-    // or ensure 'id' is generated and name is an attribute. For now, we use a simple generated ID.
-
-    const userId = uuidv4(); // Generate a unique ID for every user for now.
-                            // Or, try to fetch by name first.
+    // This logic creates a new user on every login. For a real application,
+    // you would first search for an existing user by name or another unique identifier.
+    // For this fix, we will ensure the newly created user's full data is returned.
+    const userId = uuidv4();
 
     const userItem = {
-      userID: userId, // Primary Key
+      userID: userId,
       username: sanitizedName,
       lastSeen: new Date().toISOString(),
-      status: 'offline', // Will be updated to 'online' via socket connection
-      // Add other user details as needed (wins, losses, etc.)
+      status: 'offline',
       wins: 0,
       losses: 0,
       draws: 0,
@@ -38,19 +31,22 @@ exports.registerOrLoginUser = async (req, res) => {
     const putParams = {
       TableName: config.aws.usersTable,
       Item: userItem,
-      // ConditionExpression: "attribute_not_exists(id)" // To prevent overwriting if ID must be unique from elsewhere
     };
 
     await docClient.send(new PutCommand(putParams));
-    // In a real scenario, you'd check if user with 'sanitizedName' already exists
-    // and decide whether to update or return existing.
-    // For this example, we're creating/overwriting with a new ID each time
-    // which is not ideal for actual login, but suffices for "enter name".
 
+    // **FIX**: Return the full user object, including the scores.
+    // This ensures the frontend receives the stats upon login.
     res.status(201).json({
        message: 'User registered/updated successfully',
-       user: { id: userItem.userID, username: userItem.username },
-     });
+       user: {
+         id: userItem.userID,
+         username: userItem.username,
+         wins: userItem.wins,
+         losses: userItem.losses,
+         draws: userItem.draws,
+       },
+    });
 
   } catch (error) {
     console.error('Error in registerOrLoginUser:', error);

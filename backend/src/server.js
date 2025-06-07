@@ -6,7 +6,7 @@ const config = require('./config');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-// const gameRoutes = require('./routes/gameRoutes'); // TODO: Add when ready
+const userStatsRoutes = require('./routes/userStatsRoutes');  // <-- Import userStatsRoutes
 
 const { docClient } = require('./config/db');
 const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
@@ -26,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-// app.use('/api/games', gameRoutes); // Future addition
+app.use('/api', userStatsRoutes);  // <-- Use the new route
 
 // Health check
 app.get('/health', (req, res) => {
