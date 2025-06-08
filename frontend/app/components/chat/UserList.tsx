@@ -31,8 +31,8 @@ const UserListItem: React.FC<{ player: OnlineUser; isOnline: boolean; onChalleng
 
 const UserList: React.FC<UserListProps> = ({ onlineUsers, offlineUsers, onChallenge, currentUser }) => {
   // Ensure 'christopher' is included as a player but not duplicated with the current user
-  const allOnlineUsers = [{ userId: 'christopher', username: 'Christopher' }, ...onlineUsers.filter(u => u.userId !== currentUser?.id)];
-  const allOfflineUsers = offlineUsers.filter(u => u.userId !== currentUser?.id);
+  const allOnlineUsers = [{ userId: 'christopher', username: 'Christopher' }, ...onlineUsers.filter(u => u.userId !== currentUser?.userID)];
+  const allOfflineUsers = offlineUsers.filter(u => u.userId !== currentUser?.userID);
 
   return (
     <div>
