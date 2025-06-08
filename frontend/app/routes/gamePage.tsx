@@ -1,4 +1,5 @@
 // frontend/app/pages/GamePage.tsx
+// frontend/app/pages/GamePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -43,14 +44,14 @@ const GamePage: React.FC = () => {
   const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
   const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
 
-  // Show name dialog if not authenticated
+  const [isChallengeInProgress, setIsChallengeInProgress] = useState(false);
+
   useEffect(() => {
     if (!authLoading) {
       setShowNameDialog(!isAuthenticated);
     }
   }, [isAuthenticated, authLoading]);
 
-  // Fetch all users on mount (for offline user list base)
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
@@ -63,37 +64,26 @@ const GamePage: React.FC = () => {
     fetchAllUsers();
   }, []);
 
-  // Update online and offline users based on socket events
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
     socket.emit(EVENTS.GET_USER_LIST);
 
     const handleUserListUpdate = (users: OnlineUser[]) => {
-      // Exclude current user from online list
       const filteredOnline = users.filter((u) => u.userId !== user.userID);
       setOnlinePlayers(filteredOnline);
 
-      // Offline = allUsers minus online users and minus self
       const offline = allUsers.filter(
-        (u) =>
-          u.userId !== user.userID &&
-          !filteredOnline.some((online) => online.userId === u.userId)
+        (u) => u.userId !== user.userID && !filteredOnline.some((online) => online.userId === u.userId)
       );
       setOfflinePlayers(offline);
     };
 
-    const handleChallengeReceive = ({
-      fromUser,
-    }: {
-      fromUser: OnlineUser;
-    }) => {
+    const handleChallengeReceive = ({ fromUser }: { fromUser: OnlineUser }) => {
       toast(
         ({ closeToast }) => (
           <div>
-            <p>
-              <strong>{fromUser.username}</strong> challenges you to a game!
-            </p>
+            <p><strong>{fromUser.username}</strong> challenges you to a game!</p>
             <div style={{ marginTop: 10 }}>
               <button
                 onClick={() => {
@@ -144,7 +134,6 @@ const GamePage: React.FC = () => {
     socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
     socket.on(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
 
-    // Cleanup listeners on unmount or deps change
     return () => {
       socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
       socket.off(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
@@ -153,12 +142,18 @@ const GamePage: React.FC = () => {
 
   const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
 
-  // Challenge a player or Christopher
   const handleChallengePlayer = (targetUser: OnlineUser) => {
     if (!user || !socket) {
       toast.error('You must be logged in to challenge players.');
       return;
     }
+    if (isChallengeInProgress) {
+      toast.info('You are already challenging someone. Please wait...');
+      return;
+    }
+
+    setIsChallengeInProgress(true);
+
     if (targetUser.userId === 'christopher') {
       socket.emit(EVENTS.CHALLENGE_CHRISTOPHER);
       toast.info('Challenging Christopher...');
@@ -168,6 +163,8 @@ const GamePage: React.FC = () => {
       });
       toast.info(`Challenge sent to ${targetUser.username}!`);
     }
+
+    setTimeout(() => setIsChallengeInProgress(false), 10000);
   };
 
   if (authLoading) {
@@ -184,9 +181,7 @@ const GamePage: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen w-full flex flex-col ${
-        darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
-      }`}
+      className={`min-h-screen w-full flex flex-col ${darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}
     >
       <Header />
 
@@ -203,9 +198,7 @@ const GamePage: React.FC = () => {
 
           {!gameActive && !winner && (
             <div className="mt-8 flex flex-col items-center space-y-4 md:space-y-0 md:space-x-4 md:flex-row">
-              <p className="text-lg">
-                Challenge a player from the list to start a game!
-              </p>
+              <p className="text-lg">Challenge a player from the list to start a game!</p>
               <button
                 onClick={() =>
                   handleChallengePlayer({
@@ -213,6 +206,7 @@ const GamePage: React.FC = () => {
                     username: 'Christopher',
                   })
                 }
+                disabled={isChallengeInProgress}
                 className="px-6 py-3 bg-gradient-to-r from-[#B635D9] to-[#FF4F8B] text-white font-semibold rounded-lg shadow hover:opacity-90 transition-opacity"
               >
                 Play vs Christopher

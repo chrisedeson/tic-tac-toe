@@ -1,3 +1,4 @@
+// frontend/app/components/chat/UserList.tsx
 import React from "react";
 import type { OnlineUser, User } from "../../types";
 import { Button } from "../ui/Button";
