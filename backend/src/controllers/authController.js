@@ -13,9 +13,8 @@ exports.registerOrLoginUser = async (req, res) => {
   const sanitizedName = name.trim();
 
   try {
-    // This logic creates a new user on every login. For a real application,
-    // you would first search for an existing user by name or another unique identifier.
-    // For this fix, we will ensure the newly created user's full data is returned.
+    // This logic creates a new user on every login.
+    // For a real application, you would first search for an existing user by name or another unique identifier.
     const userId = uuidv4();
 
     const userItem = {
@@ -23,6 +22,7 @@ exports.registerOrLoginUser = async (req, res) => {
       username: sanitizedName,
       lastSeen: new Date().toISOString(),
       status: 'offline',
+      gameStatus: 'offline',  // <-- Adding 'gameStatus' here
       wins: 0,
       losses: 0,
       draws: 0,
@@ -35,19 +35,17 @@ exports.registerOrLoginUser = async (req, res) => {
 
     await docClient.send(new PutCommand(putParams));
 
-    // **FIX**: Return the full user object, including the scores.
-    // This ensures the frontend receives the stats upon login.
     res.status(201).json({
-       message: 'User registered/updated successfully',
-       user: {
-         userID: userItem.userID,
-         username: userItem.username,
-         wins: userItem.wins,
-         losses: userItem.losses,
-         draws: userItem.draws,
-       },
+      message: 'User registered/updated successfully',
+      user: {
+        userID: userItem.userID,
+        username: userItem.username,
+        wins: userItem.wins,
+        losses: userItem.losses,
+        draws: userItem.draws,
+        gameStatus: userItem.gameStatus,  // <-- Make sure to return gameStatus
+      },
     });
-
   } catch (error) {
     console.error('Error in registerOrLoginUser:', error);
     res.status(500).json({ message: 'Error processing user registration', error: error.message });
