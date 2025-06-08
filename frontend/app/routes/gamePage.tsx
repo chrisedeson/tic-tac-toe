@@ -1,5 +1,4 @@
 // frontend/app/pages/GamePage.tsx
-// frontend/app/pages/GamePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -147,6 +146,11 @@ const GamePage: React.FC = () => {
       toast.error('You must be logged in to challenge players.');
       return;
     }
+    if (gameActive) {
+      toast.info('A game is currently in progress. Please wait.');
+      return;
+    }
+
     if (isChallengeInProgress) {
       toast.info('You are already challenging someone. Please wait...');
       return;
@@ -206,7 +210,7 @@ const GamePage: React.FC = () => {
                     username: 'Christopher',
                   })
                 }
-                disabled={isChallengeInProgress}
+                disabled={gameActive || isChallengeInProgress}
                 className="px-6 py-3 bg-gradient-to-r from-[#B635D9] to-[#FF4F8B] text-white font-semibold rounded-lg shadow hover:opacity-90 transition-opacity"
               >
                 Play vs Christopher
@@ -232,6 +236,7 @@ const GamePage: React.FC = () => {
             currentUser={user}
             onlineUsers={onlinePlayers}
             offlineUsers={offlinePlayers}
+            gameActive={gameActive} // Passing down gameActive to UserList
           />
         </aside>
       </main>
