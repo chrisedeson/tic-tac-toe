@@ -9,9 +9,10 @@ interface UserListProps {
   offlineUsers: OnlineUser[];
   onChallenge: (user: OnlineUser) => void;
   currentUser: User | null;
+  gameActive: boolean;  // New prop to disable challenge button
 }
 
-const UserListItem: React.FC<{ player: OnlineUser; isOnline: boolean; onChallenge: (user: OnlineUser) => void }> = ({ player, isOnline, onChallenge }) => {
+const UserListItem: React.FC<{ player: OnlineUser; isOnline: boolean; onChallenge: (user: OnlineUser) => void; gameActive: boolean }> = ({ player, isOnline, onChallenge, gameActive }) => {
   return (
     <li className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
       <div className="flex items-center">
@@ -25,13 +26,12 @@ const UserListItem: React.FC<{ player: OnlineUser; isOnline: boolean; onChalleng
           )}
         </div>
       </div>
-      {isOnline && <Button size="sm" onClick={() => onChallenge(player)}>Challenge</Button>}
+      {isOnline && <Button size="sm" onClick={() => onChallenge(player)} disabled={gameActive}>Challenge</Button>}
     </li>
   );
 };
 
-const UserList: React.FC<UserListProps> = ({ onlineUsers, offlineUsers, onChallenge, currentUser }) => {
-  // Ensure 'christopher' is included as a player but not duplicated with the current user
+const UserList: React.FC<UserListProps> = ({ onlineUsers, offlineUsers, onChallenge, currentUser, gameActive }) => {
   const allOnlineUsers = [{ userId: 'christopher', username: 'Christopher' }, ...onlineUsers.filter(u => u.userId !== currentUser?.userID)];
   const allOfflineUsers = offlineUsers.filter(u => u.userId !== currentUser?.userID);
 
@@ -40,13 +40,11 @@ const UserList: React.FC<UserListProps> = ({ onlineUsers, offlineUsers, onChalle
       <h2 className="text-xl font-bold mb-4 border-b pb-2 dark:border-gray-700">Players</h2>
       <ul className="space-y-1 max-h-96 overflow-y-auto">
         {allOnlineUsers.map(player => (
-          // Use a combination of userId and username to guarantee a unique key
-          <UserListItem key={`${player.userId}-${player.username}`} player={player} isOnline={true} onChallenge={onChallenge} />
+          <UserListItem key={`${player.userId}-${player.username}`} player={player} isOnline={true} onChallenge={onChallenge} gameActive={gameActive} />
         ))}
         {allOfflineUsers.length > 0 && <hr className="my-2 border-gray-300 dark:border-gray-600" />}
         {allOfflineUsers.map(player => (
-          // Use a combination of userId and username to guarantee a unique key
-          <UserListItem key={`${player.userId}-${player.username}`} player={player} isOnline={false} onChallenge={onChallenge} />
+          <UserListItem key={`${player.userId}-${player.username}`} player={player} isOnline={false} onChallenge={onChallenge} gameActive={gameActive} />
         ))}
       </ul>
     </div>
