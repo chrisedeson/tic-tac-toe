@@ -60,14 +60,12 @@ const GamePage: React.FC = () => {
     fetchAllUsers();
   }, []);
 
-  // Socket listeners: user list and incoming challenge
+  // Socket listeners: user list, incoming challenge, and challenge results
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
-    // ask server for current online users
     socket.emit(EVENTS.GET_USER_LIST);
 
-    // when server pushes updated online list
     const handleUserListUpdate = (users: OnlineUser[]) => {
       const filteredOnline = users.filter(u => u.userId !== user.userID);
       setOnlinePlayers(filteredOnline);
@@ -80,45 +78,27 @@ const GamePage: React.FC = () => {
       setOfflinePlayers(offline);
     };
 
-    // when someone challenges you
-    const handleChallengeReceive = async ({
-      fromUser,
-    }: {
-      fromUser: OnlineUser;
-    }) => {
+    const handleChallengeReceive = async ({ fromUser }: { fromUser: OnlineUser }) => {
       toast(
         ({ closeToast }) => (
           <div>
-            <p>
-              <strong>{fromUser.username}</strong> challenges you to a game!
-            </p>
+            <p><strong>{fromUser.username}</strong> challenges you to a game!</p>
             <div style={{ marginTop: 10 }}>
               <button
                 onClick={async () => {
                   try {
-                    // 1. Check challenger’s gameStatus
                     const resp = await api.get(`/users/${fromUser.userId}`);
                     const { gameStatus } = resp.data.user;
-
                     if (gameStatus === 'offline') {
-                      // 2a. Accept
                       socket.emit(EVENTS.CHALLENGE_RESPONSE, {
                         toUserId: fromUser.userId,
                         accepted: true,
                       });
                     } else {
-                      // 2b. Busy → toast
-                      toast.info(
-                        `${fromUser.username} is currently busy.`,
-                        { autoClose: 3000 }
-                      );
+                      toast.info(`${fromUser.username} is currently busy.`, { autoClose: 1000 });
                     }
-                  } catch (err) {
-                    console.error('Error checking gameStatus:', err);
-                    toast.error(
-                      'Could not verify user status. Try again later.',
-                      { autoClose: 3000 }
-                    );
+                  } catch {
+                    toast.error('Could not verify user status. Try again later.', { autoClose: 1000 });
                   }
                   closeToast?.();
                 }}
@@ -165,17 +145,24 @@ const GamePage: React.FC = () => {
       );
     };
 
+    const handleChallengeResult = ({ message }: { message: string }) => {
+      // this covers both accepted and declined responses
+      toast.success(message, { autoClose: 2000 });
+    };
+
     socket.on(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
     socket.on(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
+    socket.on(EVENTS.CHALLENGE_RESULT, handleChallengeResult);
 
     return () => {
       socket.off(EVENTS.USER_LIST_UPDATED, handleUserListUpdate);
       socket.off(EVENTS.CHALLENGE_RECEIVE, handleChallengeReceive);
+      socket.off(EVENTS.CHALLENGE_RESULT, handleChallengeResult);
     };
   }, [socket, isConnected, user, allUsers]);
 
-  // Trigger a challenge to someone
-  const handleChallengePlayer = (targetUser: OnlineUser) => {
+  // Trigger a challenge to someone, skipping status-check for Christopher
+  const handleChallengePlayer = async (targetUser: OnlineUser) => {
     if (!user || !socket) {
       toast.error('You must be logged in to challenge players.');
       return;
@@ -191,17 +178,30 @@ const GamePage: React.FC = () => {
 
     setIsChallengeInProgress(true);
 
+    // 1. Christopher is always available
     if (targetUser.userId === 'christopher') {
       socket.emit(EVENTS.CHALLENGE_CHRISTOPHER);
       toast.info('Challenging Christopher...');
-    } else {
-      socket.emit(EVENTS.CHALLENGE_SEND, {
-        toUserId: targetUser.userId,
-      });
-      toast.info(`Challenge sent to ${targetUser.username}!`);
+      setTimeout(() => setIsChallengeInProgress(false), 10000);
+      return;
     }
 
-    // reset lock in 10s
+    // 2. Otherwise check their gameStatus
+    try {
+      const resp = await api.get(`/users/${targetUser.userId}`);
+      const { gameStatus } = resp.data.user;
+
+      if (gameStatus === 'playing') {
+        toast.info(`${targetUser.username} is currently busy.`, { autoClose: 2000 });
+      } else {
+        socket.emit(EVENTS.CHALLENGE_SEND, { toUserId: targetUser.userId });
+        toast.info(`Challenge sent to ${targetUser.username}!`);
+      }
+    } catch (err) {
+      console.error('Error checking target gameStatus:', err);
+      toast.error('Could not verify user status. Try again later.', { autoClose: 2000 });
+    }
+
     setTimeout(() => setIsChallengeInProgress(false), 10000);
   };
 
@@ -218,13 +218,9 @@ const GamePage: React.FC = () => {
   }
 
   return (
-    <div
-      className={`min-h-screen w-full flex flex-col ${
-        darkMode
-          ? 'dark bg-gray-900 text-white'
-          : 'bg-gray-50 text-gray-900'
-      }`}
-    >
+    <div className={`min-h-screen w-full flex flex-col ${
+        darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
       <Header />
 
       <main className="flex-grow flex flex-col md:flex-row p-4 md:p-6 gap-6">
