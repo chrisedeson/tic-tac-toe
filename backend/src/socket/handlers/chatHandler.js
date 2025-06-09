@@ -1,62 +1,137 @@
 // backend/src/socket/handlers/chatHandler.js
-const { EVENTS } = require('../events');
-const { v4: uuidv4 } = require('uuid');
-
-// In a real app, you would persist messages to DynamoDB here.
+const { EVENTS } = require("../events");
+const { v4: uuidv4 } = require("uuid");
+const { docClient } = require("../../config/db");
+const { PutCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
 module.exports.initChatHandler = (io, socket, onlineUsers) => {
-  const sendMessage = (messageData) => {
-    // Here you would save the message to DynamoDB Messages table
-    // For now, we just broadcast it.
-    io.emit(EVENTS.CHAT_MESSAGE_RECEIVE, messageData);
-  };
+  // ---------------------- Save Message to DB ----------------------
+  const saveMessageToDB = async ({ messagePayload }) => {
+    const params = {
+      TableName: "messages",
+      Item: {
+        messageID: messagePayload.id,
+        senderId: messagePayload.senderId,
+        receiverId: messagePayload.receiverId || null,
+        messageContent: messagePayload.messageContent,
+        senderUsername: messagePayload.senderUsername,
+        messageType: messagePayload.messageType, // "public" or "private"
+        timestamp: messagePayload.timestamp,
+      },
+    };
 
-  const sendPrivateMessage = ({ toUserId, message }) => {
-    // Here you would save the message to DynamoDB
-    const recipientSocket = [...onlineUsers.values()].find(u => u.userId === toUserId);
-
-    if (recipientSocket) {
-      // Send to the recipient's private room
-      io.to(toUserId).emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, message);
-      // Also send back to the sender so it appears in their chat window
-      socket.emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, message);
-    } else {
-      // Handle offline messaging if desired
-      socket.emit(EVENTS.NOTIFICATION_RECEIVE, {
-        type: 'error',
-        message: 'User is offline. Message not sent.',
-      });
+    try {
+      await docClient.send(new PutCommand(params));
+    } catch (error) {
+      console.error("Error saving message to DB:", error);
     }
   };
 
-  socket.on(EVENTS.CHAT_MESSAGE_SEND, (messageText) => {
+  // ---------------------- Fetch Public Messages ----------------------
+  const fetchPublicMessages = async () => {
+    const params = {
+      TableName: "messages",
+      FilterExpression: "messageType = :type",
+      ExpressionAttributeValues: {
+        ":type": "public",
+      },
+    };
+
+    try {
+      const data = await docClient.send(new ScanCommand(params));
+      return data.Items || [];
+    } catch (error) {
+      console.error("Error fetching public messages:", error);
+      return [];
+    }
+  };
+
+  // ---------------------- On New User Online ----------------------
+  socket.on(EVENTS.USER_ONLINE, async ({ userId }) => {
+    const publicMessages = await fetchPublicMessages();
+
+    // Send past public messages to the new user
+    socket.emit(EVENTS.CHAT_MESSAGE_RECEIVE, publicMessages);
+  });
+
+  // ---------------------- Handle Public Message ----------------------
+  socket.on(EVENTS.CHAT_MESSAGE_SEND, async ({ userId, message }) => {
     const sender = onlineUsers.get(socket.id);
     if (!sender) return;
 
-    const messageData = {
-      id: uuidv4(),
+    const messageId = uuidv4();
+
+    const messagePayload = {
+      id: messageId,
       senderId: sender.userId,
       senderUsername: sender.username,
-      text: messageText, // Remember to sanitize this input!
+      messageContent: message,
+      messageType: "public",
       timestamp: new Date().toISOString(),
-      channel: 'community',
     };
-    sendMessage(messageData);
+
+    // Broadcast to everyone
+    io.emit(EVENTS.CHAT_MESSAGE_RECEIVE, [messagePayload]);
+
+    // Save to DB
+    await saveMessageToDB({ messagePayload });
   });
 
-  socket.on(EVENTS.CHAT_PRIVATE_MESSAGE_SEND, ({ toUserId, messageText }) => {
-    const sender = onlineUsers.get(socket.id);
-    if (!sender) return;
+  // ---------------------- Handle Private Message ----------------------
+  socket.on(EVENTS.CHAT_PRIVATE_MESSAGE_SEND, async ({ toUserId, message }) => {
+    const fromUser = onlineUsers.get(socket.id);
+    const toUser = [...onlineUsers.values()].find((u) => u.userId === toUserId);
+    if (!fromUser || !toUser) return;
 
-    const messageData = {
-      messageID: uuidv4(),
-      senderId: sender.userId,
-      senderUsername: sender.username,
-      recipientId: toUserId,
-      text: messageText, // Sanitize!
+    const messageId = uuidv4();
+
+    const messagePayload = {
+      id: messageId,
+      senderId: fromUser.userId,
+      receiverId: toUserId,
+      senderUsername: fromUser.username,
+      messageContent: message,
+      messageType: "private",
       timestamp: new Date().toISOString(),
-      channel: `private_${[sender.userId, toUserId].sort().join('_')}`, // Create a consistent private channel ID
     };
-    sendPrivateMessage({ toUserId, message: messageData });
+
+    // Send only to recipient and sender
+    io.to(toUser.socketId).emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, messagePayload);
+    io.to(fromUser.socketId).emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, messagePayload);
+
+    // Save to DB
+    await saveMessageToDB({ messagePayload });
   });
+
+  // backend/src/socket/handlers/chatHandler.js
+socket.on(EVENTS.CHAT_FETCH_MESSAGES, async ({ type, currentUserId, otherUserId }) => {
+  const params = {
+    TableName: "messages",
+    FilterExpression: "",
+    ExpressionAttributeValues: {},
+  };
+
+  if (type === "public") {
+    params.FilterExpression = "messageType = :type";
+    params.ExpressionAttributeValues = { ":type": "public" };
+  } else if (type === "private") {
+    params.FilterExpression =
+      "(senderId = :me AND receiverId = :other) OR (senderId = :other AND receiverId = :me)";
+    params.ExpressionAttributeValues = {
+      ":me": currentUserId,
+      ":other": otherUserId,
+    };
+  }
+
+  try {
+    const data = await docClient.send(new ScanCommand(params));
+    socket.emit(
+      type === "public" ? EVENTS.CHAT_MESSAGE_RECEIVE : EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE,
+      data.Items || []
+    );
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+  }
+});
+
 };
