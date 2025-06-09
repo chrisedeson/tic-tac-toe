@@ -26,31 +26,28 @@ const GamePage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { socket, isConnected } = useSocket();
   const {
-    gameId,
-    board,
-    playerSymbol,
-    currentPlayerId,
-    opponent,
     gameActive,
-    winner,
-    scores,
     timeLeft,
-    resetGame,
+    currentPlayerId,
+    scores,
+    winner,
   } = useGame();
 
   const [showNameDialog, setShowNameDialog] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlineUser[]>([]);
   const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
-
+  const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
   const [isChallengeInProgress, setIsChallengeInProgress] = useState(false);
 
+  // Show name dialog if not logged in
   useEffect(() => {
     if (!authLoading) {
       setShowNameDialog(!isAuthenticated);
     }
   }, [isAuthenticated, authLoading]);
 
+  // Fetch full user list for offline/online separation
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
@@ -63,34 +60,67 @@ const GamePage: React.FC = () => {
     fetchAllUsers();
   }, []);
 
+  // Socket listeners: user list and incoming challenge
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
+    // ask server for current online users
     socket.emit(EVENTS.GET_USER_LIST);
 
+    // when server pushes updated online list
     const handleUserListUpdate = (users: OnlineUser[]) => {
-      const filteredOnline = users.filter((u) => u.userId !== user.userID);
+      const filteredOnline = users.filter(u => u.userId !== user.userID);
       setOnlinePlayers(filteredOnline);
 
       const offline = allUsers.filter(
-        (u) => u.userId !== user.userID && !filteredOnline.some((online) => online.userId === u.userId)
+        u =>
+          u.userId !== user.userID &&
+          !filteredOnline.some(online => online.userId === u.userId)
       );
       setOfflinePlayers(offline);
     };
 
-    const handleChallengeReceive = ({ fromUser }: { fromUser: OnlineUser }) => {
+    // when someone challenges you
+    const handleChallengeReceive = async ({
+      fromUser,
+    }: {
+      fromUser: OnlineUser;
+    }) => {
       toast(
         ({ closeToast }) => (
           <div>
-            <p><strong>{fromUser.username}</strong> challenges you to a game!</p>
+            <p>
+              <strong>{fromUser.username}</strong> challenges you to a game!
+            </p>
             <div style={{ marginTop: 10 }}>
               <button
-                onClick={() => {
-                  socket.emit(EVENTS.CHALLENGE_RESPONSE, {
-                    toUserId: fromUser.userId,
-                    accepted: true,
-                  });
-                  closeToast && closeToast();
+                onClick={async () => {
+                  try {
+                    // 1. Check challenger’s gameStatus
+                    const resp = await api.get(`/users/${fromUser.userId}`);
+                    const { gameStatus } = resp.data.user;
+
+                    if (gameStatus === 'offline') {
+                      // 2a. Accept
+                      socket.emit(EVENTS.CHALLENGE_RESPONSE, {
+                        toUserId: fromUser.userId,
+                        accepted: true,
+                      });
+                    } else {
+                      // 2b. Busy → toast
+                      toast.info(
+                        `${fromUser.username} is currently busy.`,
+                        { autoClose: 3000 }
+                      );
+                    }
+                  } catch (err) {
+                    console.error('Error checking gameStatus:', err);
+                    toast.error(
+                      'Could not verify user status. Try again later.',
+                      { autoClose: 3000 }
+                    );
+                  }
+                  closeToast?.();
                 }}
                 style={{
                   marginRight: 8,
@@ -110,7 +140,7 @@ const GamePage: React.FC = () => {
                     toUserId: fromUser.userId,
                     accepted: false,
                   });
-                  closeToast && closeToast();
+                  closeToast?.();
                 }}
                 style={{
                   padding: '6px 12px',
@@ -126,7 +156,12 @@ const GamePage: React.FC = () => {
             </div>
           </div>
         ),
-        { autoClose: false, closeOnClick: false, draggable: false, type: 'info' }
+        {
+          autoClose: false,
+          closeOnClick: false,
+          draggable: false,
+          type: 'info',
+        }
       );
     };
 
@@ -139,8 +174,7 @@ const GamePage: React.FC = () => {
     };
   }, [socket, isConnected, user, allUsers]);
 
-  const [offlinePlayers, setOfflinePlayers] = useState<OnlineUser[]>([]);
-
+  // Trigger a challenge to someone
   const handleChallengePlayer = (targetUser: OnlineUser) => {
     if (!user || !socket) {
       toast.error('You must be logged in to challenge players.');
@@ -150,7 +184,6 @@ const GamePage: React.FC = () => {
       toast.info('A game is currently in progress. Please wait.');
       return;
     }
-
     if (isChallengeInProgress) {
       toast.info('You are already challenging someone. Please wait...');
       return;
@@ -168,6 +201,7 @@ const GamePage: React.FC = () => {
       toast.info(`Challenge sent to ${targetUser.username}!`);
     }
 
+    // reset lock in 10s
     setTimeout(() => setIsChallengeInProgress(false), 10000);
   };
 
@@ -185,24 +219,28 @@ const GamePage: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen w-full flex flex-col ${darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}
+      className={`min-h-screen w-full flex flex-col ${
+        darkMode
+          ? 'dark bg-gray-900 text-white'
+          : 'bg-gray-50 text-gray-900'
+      }`}
     >
       <Header />
 
       <main className="flex-grow flex flex-col md:flex-row p-4 md:p-6 gap-6">
-        {/* Left side: game */}
+        {/* Left: game board + timer */}
         <div className="flex-grow md:w-[70%] flex flex-col items-center">
           {gameActive && (
             <div className="w-full max-w-md mb-4">
               <Timer timeLeft={timeLeft} currentPlayerId={currentPlayerId} />
             </div>
           )}
-
           <Board />
-
           {!gameActive && !winner && (
             <div className="mt-8 flex flex-col items-center space-y-4 md:space-y-0 md:space-x-4 md:flex-row">
-              <p className="text-lg">Challenge a player from the list to start a game!</p>
+              <p className="text-lg">
+                Challenge a player from the list to start a game!
+              </p>
               <button
                 onClick={() =>
                   handleChallengePlayer({
@@ -217,16 +255,13 @@ const GamePage: React.FC = () => {
               </button>
             </div>
           )}
-
           {winner && <GameEndModal />}
-
-          {/* Mobile scoreboard */}
           <div className="md:hidden mt-6 w-full max-w-md">
             <Scoreboard scores={scores} />
           </div>
         </div>
 
-        {/* Right side: scoreboard + user lists */}
+        {/* Right: scoreboard + users */}
         <aside className="w-full md:w-[30%] lg:w-[25%] p-4 dark:bg-gray-800 bg-gray-100 rounded-lg shadow">
           <div className="hidden md:block mb-6">
             <Scoreboard scores={scores} />
@@ -236,14 +271,14 @@ const GamePage: React.FC = () => {
             currentUser={user}
             onlineUsers={onlinePlayers}
             offlineUsers={offlinePlayers}
-            gameActive={gameActive} // Passing down gameActive to UserList
+            gameActive={gameActive}
           />
         </aside>
       </main>
 
       <Footer />
 
-      <ChatIcon onClick={() => setShowChat((prev) => !prev)} />
+      <ChatIcon onClick={() => setShowChat(prev => !prev)} />
       {showChat && (
         <ChatWindow
           onClose={() => setShowChat(false)}
