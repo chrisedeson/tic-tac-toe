@@ -12,7 +12,6 @@ const getAllUsers = async (req, res) => {
   try {
     const params = {
       TableName: config.aws.usersTable,
-      // include both status and gameStatus
       ProjectionExpression: "userID, username, lastSeen, #status, gameStatus",
       ExpressionAttributeNames: { "#status": "status" },
     };
@@ -22,8 +21,8 @@ const getAllUsers = async (req, res) => {
       userId: item.userID,
       username: item.username,
       lastSeen: item.lastSeen,
-      status: item.status, // your “regular” online/offline status
-      gameStatus: item.gameStatus, // now pulled in from Dynamo
+      status: item.status,
+      gameStatus: item.gameStatus,
     }));
 
     res.status(200).json(formatted);
@@ -113,10 +112,47 @@ const getUserById = async (req, res) => {
   }
 };
 
+// Update user presence (status and lastSeen)
+const updatePresence = async (req, res) => {
+  const { userId } = req.params;
+  const { status, lastSeen } = req.body;
+
+  if (!userId || !status) {
+    return res.status(400).json({ message: "userId and status are required" });
+  }
+
+  const updateExpr = ['#st = :status'];
+  const exprNames = { '#st': 'status' };
+  const exprValues = { ':status': status };
+
+  if (lastSeen) {
+    updateExpr.push('lastSeen = :lastSeen');
+    exprValues[':lastSeen'] = lastSeen;
+  }
+
+  try {
+    const params = {
+      TableName: config.aws.usersTable,
+      Key: { userID: userId },
+      UpdateExpression: 'SET ' + updateExpr.join(', '),
+      ExpressionAttributeNames: exprNames,
+      ExpressionAttributeValues: exprValues,
+      ReturnValues: 'UPDATED_NEW',
+    };
+
+    const { Attributes } = await docClient.send(new UpdateCommand(params));
+    return res.status(200).json({ message: 'Presence updated', attributes: Attributes });
+  } catch (err) {
+    console.error('Error updating presence:', err);
+    return res.status(500).json({ message: 'Failed to update presence' });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
   startGame,
   endGame,
   updateGameStatus,
+  updatePresence,
 };
