@@ -159,7 +159,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       )}
 
       {/* message list */}
-      <main className="flex-grow p-3 overflow-y-auto flex flex-col space-y-2">
+      <aside className="flex-grow p-3 overflow-y-auto flex flex-col space-y-2 tiny-scrollbar">
         {displayed.map((msg) => (
           <div
             key={msg.id}
@@ -182,7 +182,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         ))}
         <div ref={endRef} />
-      </main>
+      </aside>
 
       {/* input & send */}
       <footer className="p-2 border-t dark:border-gray-700">

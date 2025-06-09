@@ -140,3 +140,23 @@ body {
     @apply bg-background text-foreground;
     }
 }
+
+
+/* Custom thin scrollbar */
+.tiny-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tiny-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tiny-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.4);
+  border-radius: 20px;
+}
+
+.tiny-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 100, 100, 0.4) transparent;
+}
