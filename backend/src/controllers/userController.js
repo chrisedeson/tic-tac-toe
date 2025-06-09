@@ -1,45 +1,51 @@
 // backend/src/controllers/userController.js
-const { ScanCommand, GetCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
-const { docClient } = require('../config/db');
-const config = require('../config');
+const {
+  ScanCommand,
+  GetCommand,
+  UpdateCommand,
+} = require("@aws-sdk/lib-dynamodb");
+const { docClient } = require("../config/db");
+const config = require("../config");
 
 // Function to get all users
 const getAllUsers = async (req, res) => {
   try {
     const params = {
       TableName: config.aws.usersTable,
-      ProjectionExpression: "userID, username, lastSeen, #status",
+      // include both status and gameStatus
+      ProjectionExpression: "userID, username, lastSeen, #status, gameStatus",
       ExpressionAttributeNames: { "#status": "status" },
     };
 
     const { Items } = await docClient.send(new ScanCommand(params));
-    const formatted = (Items || []).map(item => ({
+    const formatted = (Items || []).map((item) => ({
       userId: item.userID,
       username: item.username,
       lastSeen: item.lastSeen,
-      status: item.status,
+      status: item.status, // your “regular” online/offline status
+      gameStatus: item.gameStatus, // now pulled in from Dynamo
     }));
 
     res.status(200).json(formatted);
   } catch (error) {
-    console.error('Error fetching all users:', error);
-    res.status(500).json({ message: 'Failed to fetch users' });
+    console.error("Error fetching all users:", error);
+    res.status(500).json({ message: "Failed to fetch users" });
   }
 };
 
 // Function to update game status
 const updateGameStatus = async (userId, status) => {
   if (!userId || !status) {
-    console.error('Missing userId or status');
+    console.error("Missing userId or status");
     return null;
   }
 
   const params = {
     TableName: config.aws.usersTable,
     Key: { userID: userId },
-    UpdateExpression: 'SET gameStatus = :status',
-    ExpressionAttributeValues: { ':status': status },
-    ReturnValues: 'UPDATED_NEW',
+    UpdateExpression: "SET gameStatus = :status",
+    ExpressionAttributeValues: { ":status": status },
+    ReturnValues: "UPDATED_NEW",
   };
 
   try {
@@ -56,14 +62,16 @@ const startGame = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const updatedUser = await updateGameStatus(userId, 'playing');
+    const updatedUser = await updateGameStatus(userId, "playing");
     if (updatedUser) {
-      return res.status(200).json({ message: 'Game started', user: updatedUser });
+      return res
+        .status(200)
+        .json({ message: "Game started", user: updatedUser });
     }
-    return res.status(500).json({ message: 'Failed to start the game' });
+    return res.status(500).json({ message: "Failed to start the game" });
   } catch (error) {
-    console.error('Error starting game:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error starting game:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -72,14 +80,14 @@ const endGame = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const updatedUser = await updateGameStatus(userId, 'offline');
+    const updatedUser = await updateGameStatus(userId, "offline");
     if (updatedUser) {
-      return res.status(200).json({ message: 'Game ended', user: updatedUser });
+      return res.status(200).json({ message: "Game ended", user: updatedUser });
     }
-    return res.status(500).json({ message: 'Failed to end the game' });
+    return res.status(500).json({ message: "Failed to end the game" });
   } catch (error) {
-    console.error('Error ending game:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error ending game:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -96,12 +104,12 @@ const getUserById = async (req, res) => {
     const { Item } = await docClient.send(command);
 
     if (!Item) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
     res.status(200).json({ user: Item });
   } catch (error) {
-    console.error('Error fetching user by ID:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching user by ID:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
