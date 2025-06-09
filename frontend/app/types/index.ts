@@ -47,9 +47,8 @@ export interface Message {
   senderId: string;
   senderUsername: string;
   text: string;
-  timestamp: string;
-  channel: string;
-  recipientId?: string;
+  timestamp: number;     // → UNIX millis since epoch
+  recipientId?: string;  // undefined = public
 }
 
 export interface TimerProps {
