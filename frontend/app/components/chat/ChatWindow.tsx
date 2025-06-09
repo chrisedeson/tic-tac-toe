@@ -13,8 +13,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"public" | "private">("public");
-  const [privateChatTarget, setPrivateChatTarget] =
-    useState<OnlineUser | null>(null);
+  const [privateChatTarget, setPrivateChatTarget] = useState<OnlineUser | null>(
+    null
+  );
 
   const { socket } = useSocket();
   const { user } = useAuth();
@@ -202,7 +203,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           <button
             type="submit"
             disabled={
-              !newMessage.trim() || (activeTab === "private" && !privateChatTarget)
+              !newMessage.trim() ||
+              (activeTab === "private" && !privateChatTarget)
             }
             className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-500"
           >
