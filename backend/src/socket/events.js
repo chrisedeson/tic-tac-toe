@@ -15,6 +15,7 @@ export const EVENTS = {
   CHAT_MESSAGE_RECEIVE: 'chat:message:receive', // Server -> Clients (for public chat)
   CHAT_PRIVATE_MESSAGE_SEND: 'chat:private_message:send', // Client -> Server
   CHAT_PRIVATE_MESSAGE_RECEIVE: 'chat:private_message:receive', // Server -> Specific Client
+  CHAT_FETCH_MESSAGES: 'chat:fetch_messages',
 
   // Game & Challenge
   CHALLENGE_SEND: 'challenge:send',               // Client -> Server (to challenge a user)
