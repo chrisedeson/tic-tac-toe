@@ -1,13 +1,8 @@
 // frontend/app/contexts/AuthContext.tsx
-import React, {
-  createContext,
-  useState,
-  useEffect,
-  useContext,
-} from 'react';
+import React, { createContext, useState, useEffect, useContext } from "react";
 import type { ReactNode } from "react";
-import api from '../services/api';
-import type { User } from '../types';
+import api from "../services/api";
+import type { User } from "../types";
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const validateStoredUser = async () => {
-      const storedUser = localStorage.getItem('ticTacToeUser');
+      const storedUser = localStorage.getItem("ticTacToeUser");
       if (!storedUser) {
         setIsLoading(false);
         return;
@@ -41,8 +36,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userId = parsedUser.userID;
 
         if (!userId) {
-          console.warn('No userID found in stored user, clearing localStorage');
-          localStorage.removeItem('ticTacToeUser');
+          console.warn("No userID found in stored user, clearing localStorage");
+          localStorage.removeItem("ticTacToeUser");
           setUser(null);
           setIsLoading(false);
           return;
@@ -53,13 +48,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (response.data?.user) {
           setUser(response.data.user);
         } else {
-          console.warn('User not found in DB, clearing localStorage');
-          localStorage.removeItem('ticTacToeUser');
+          console.warn("User not found in DB, clearing localStorage");
+          localStorage.removeItem("ticTacToeUser");
           setUser(null);
         }
       } catch (error) {
-        console.error('User validation failed, clearing local user:', error);
-        localStorage.removeItem('ticTacToeUser');
+        console.error("User validation failed, clearing local user:", error);
+        localStorage.removeItem("ticTacToeUser");
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -72,12 +67,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (name: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/register', { name });
+      const response = await api.post("/auth/register", { name });
       const userData: User = response.data.user;
       setUser(userData);
-      localStorage.setItem('ticTacToeUser', JSON.stringify(userData));
+      localStorage.setItem("ticTacToeUser", JSON.stringify(userData));
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -86,14 +81,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('ticTacToeUser');
+    localStorage.removeItem("ticTacToeUser");
   };
 
   const updateUser = (newData: Partial<User>) => {
     if (!user) return;
     const updatedUser = { ...user, ...newData };
     setUser(updatedUser);
-    localStorage.setItem('ticTacToeUser', JSON.stringify(updatedUser));
+    localStorage.setItem("ticTacToeUser", JSON.stringify(updatedUser));
   };
 
   return (
@@ -115,7 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

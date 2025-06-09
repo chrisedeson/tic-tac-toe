@@ -3,7 +3,7 @@ import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { EVENTS } from '../../../backend/src/socket/events'; // Optional: use shared constants
+import { EVENTS } from '../../../backend/src/socket/events';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -19,8 +19,54 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
+  // Presence tracking
   useEffect(() => {
-    if (isAuthenticated && user?.userID && user?.username) {
+    if (!(isAuthenticated && user?.userID)) return;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+    const sendPresence = async (status: 'online' | 'offline') => {
+      try {
+        await fetch(`${apiUrl}/api/users/${user.userID}/presence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status,
+            lastSeen: status === 'offline' ? new Date().toISOString() : undefined,
+          }),
+        });
+      } catch (err) {
+        console.error('Presence update failed', err);
+      }
+    };
+
+    // Visibility change
+    const onVisibilityChange = () => {
+      sendPresence(document.hidden ? 'offline' : 'online');
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Before unload
+    const onBeforeUnload = () => {
+      navigator.sendBeacon(
+        `${apiUrl}/api/users/${user.userID}/presence`,
+        JSON.stringify({ status: 'offline', lastSeen: new Date().toISOString() })
+      );
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    // Initial mark online
+    sendPresence('online');
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      sendPresence('offline');
+    };
+  }, [isAuthenticated, user]);
+
+  // Socket connection
+  useEffect(() => {
+    if (isAuthenticated && user?.userID && user.username) {
       const newSocket = io(SOCKET_URL, {
         reconnectionAttempts: 3,
         reconnectionDelay: 2000,
@@ -56,7 +102,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setIsConnected(false);
       };
     } else if (socket) {
-      // Logout or auth cleared
       socket.disconnect();
       setSocket(null);
       setIsConnected(false);
