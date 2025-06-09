@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "../ui/Dialog";
 import { Button } from "../ui/Button";
+import Confetti from "react-confetti"; // Import the Confetti component
 
 const GameEndModal: React.FC = () => {
   const { winner, opponent, resetGame } = useGame();
@@ -38,28 +39,33 @@ const GameEndModal: React.FC = () => {
   }
 
   return (
-    <Dialog open={!!winner} onOpenChange={handleClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="text-center text-2xl">{title}</DialogTitle>
-          <DialogDescription className="text-center">
-            The game against {opponent?.username || "your opponent"} has
-            concluded.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <Button variant="secondary" onClick={handleClose}>
-            Go to Lobby
-          </Button>
-          <Button
-            onClick={handleRematch}
-            disabled={opponent?.userId === "christopher"}
-          >
-            Request Rematch
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div>
+      {/* Confetti trigger for the winner */}
+      {winner === user?.userID && <Confetti />}
+
+      <Dialog open={!!winner} onOpenChange={handleClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">{title}</DialogTitle>
+            <DialogDescription className="text-center">
+              The game against {opponent?.username || "your opponent"} has
+              concluded.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button variant="secondary" onClick={handleClose}>
+              Go to Lobby
+            </Button>
+            <Button
+              onClick={handleRematch}
+              disabled={opponent?.userId === "christopher"}
+            >
+              Request Rematch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 export default GameEndModal;
