@@ -3,6 +3,7 @@ import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import api from '~/services/api';
 import { EVENTS } from '../../../backend/src/socket/events';
 
 interface SocketContextType {
@@ -35,6 +36,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           }),
         });
       } catch (err) {
+        console.error('Presence update failed:', err);
       }
     };
 
@@ -88,6 +90,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       });
 
       newSocket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
         setIsConnected(false);
       });
 

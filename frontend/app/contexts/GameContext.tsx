@@ -6,7 +6,7 @@ import React, {
   useEffect,
   type ReactNode,
 } from "react";
-import axios from 'axios';  // Assuming you're using axios for API calls
+import api from "~/services/api";
 
 import type {
   BoardState,
@@ -49,8 +49,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Fetch user stats from backend on page load or after login
   const fetchUserStats = async (userId: string) => {
     try {
-      // Assuming you have an endpoint that provides user stats (replace with actual endpoint)
-      const response = await axios.get(`http://localhost:5000/api/user/${userId}/stats`);
+      const response = await api.get(`/user/${userId}/stats`);
       const userStats = response.data;
 
       setGameState((prev) => ({
