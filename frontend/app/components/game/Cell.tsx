@@ -16,7 +16,6 @@ const Cell: React.FC<CellProps> = ({ value, onClick, disabled }) => {
   return (
     <button
       onClick={() => {
-        console.log('Cell clicked!');
         onClick();
       }}
       className={`aspect-square flex items-center justify-center text-4xl md:text-6xl font-bold border-2 rounded-lg transition-colors duration-200 ${hoverClass} ${ disabled ? 'cursor-not-allowed' : 'cursor-pointer'} border-gray-300 dark:border-gray-600`}

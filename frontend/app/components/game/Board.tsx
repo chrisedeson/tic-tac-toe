@@ -23,14 +23,6 @@ const Board: React.FC = () => {
   const isMyTurn = user?.userID === currentPlayerId;
 
   const handleCellClick = (index: number) => {
-    console.log({
-      gameActive,
-      boardIndex: board[index],
-      winner,
-      socket,
-      gameId,
-      isMyTurn,
-    });
     if (
       !gameActive ||
       board[index] ||

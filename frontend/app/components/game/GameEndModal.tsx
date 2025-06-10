@@ -21,7 +21,6 @@ const GameEndModal: React.FC = () => {
 
   const handleRematch = () => {
     // This should emit a rematch request to the opponent
-    console.log("Rematch requested with", opponent?.userId);
     resetGame(); // For now, just reset locally.
   };
 

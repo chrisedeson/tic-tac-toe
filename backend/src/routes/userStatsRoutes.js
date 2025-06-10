@@ -20,16 +20,12 @@ const USERS_TABLE = config.aws.usersTable;  // Use the table name from config
 router.get('/user/:userId/stats', async (req, res) => {
   const { userId } = req.params; // Extract userId from the route params
 
-  console.log(`Received request for userId: ${userId}`);  // Log userId for debugging
-
   try {
     // Query DynamoDB to get user stats using 'userID' (matching your AWS attribute)
     const params = {
       TableName: USERS_TABLE,
       Key: { userID: userId },  // Change 'userId' to 'userID' as per your DynamoDB schema
     };
-
-    console.log('Query Params:', params);  // Log the query parameters being used
 
     const result = await docClient.get(params).promise();
 
