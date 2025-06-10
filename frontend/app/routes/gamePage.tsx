@@ -47,7 +47,6 @@ const GamePage: React.FC = () => {
         const response = await api.get("/users");
         setAllUsers(response.data || []);
       } catch (error) {
-        console.error("Failed to fetch user list", error);
       }
     };
     fetchAllUsers();
@@ -211,7 +210,6 @@ const GamePage: React.FC = () => {
         toast.info(`Challenge sent to ${targetUser.username}!`);
       }
     } catch (err) {
-      console.error("Error checking target gameStatus:", err);
       toast.error("Could not verify user status. Try again later.", {
         autoClose: 2000,
       });
