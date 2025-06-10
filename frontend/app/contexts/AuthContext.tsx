@@ -36,7 +36,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userId = parsedUser.userID;
 
         if (!userId) {
-          console.warn("No userID found in stored user, clearing localStorage");
           localStorage.removeItem("ticTacToeUser");
           setUser(null);
           setIsLoading(false);
@@ -48,12 +47,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (response.data?.user) {
           setUser(response.data.user);
         } else {
-          console.warn("User not found in DB, clearing localStorage");
           localStorage.removeItem("ticTacToeUser");
           setUser(null);
         }
       } catch (error) {
-        console.error("User validation failed, clearing local user:", error);
         localStorage.removeItem("ticTacToeUser");
         setUser(null);
       } finally {
@@ -72,7 +69,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       localStorage.setItem("ticTacToeUser", JSON.stringify(userData));
     } catch (error) {
-      console.error("Login failed:", error);
       throw error;
     } finally {
       setIsLoading(false);

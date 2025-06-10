@@ -35,7 +35,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           }),
         });
       } catch (err) {
-        console.error('Presence update failed', err);
       }
     };
 
@@ -78,7 +77,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       newSocket.on('connect', () => {
         setIsConnected(true);
-        console.log('✅ Socket connected:', newSocket.id);
         newSocket.emit(EVENTS.USER_ONLINE, {
           userId: user.userID,
           username: user.username,
@@ -87,11 +85,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       newSocket.on('disconnect', (reason) => {
         setIsConnected(false);
-        console.warn('⚠️ Socket disconnected:', reason);
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error);
         setIsConnected(false);
       });
 

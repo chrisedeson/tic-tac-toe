@@ -62,7 +62,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         },
       }));
     } catch (error) {
-      console.error("Failed to fetch user stats:", error);
     }
   };
 
@@ -83,7 +82,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       currentPlayerId: string;
       opponent: Opponent;
     }) => {
-      console.log("GAME_START received:", data);
 
       setGameState((prev) => ({
         ...prev,
