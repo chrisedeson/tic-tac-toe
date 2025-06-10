@@ -58,7 +58,8 @@ const GameEndModal: React.FC = () => {
             </Button>
             <Button
               onClick={handleRematch}
-              disabled={opponent?.userId === "christopher"}
+              disabled
+              // disabled={opponent?.userId === "christopher"}
             >
               Request Rematch
             </Button>
