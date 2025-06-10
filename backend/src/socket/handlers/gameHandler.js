@@ -206,6 +206,9 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
 
   // Update wins, losses, and draws for both players
   const updatePlayerStats = async (userId, result) => {
+    // **Skip AI** so you don't touch any DB record for 'christopher'
+    if (userId === "christopher") return;
+
     const userParams = {
       TableName: config.aws.usersTable,
       Key: { userID: userId },
@@ -219,7 +222,7 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
         ":wins": result === "win" ? 1 : 0,
         ":losses": result === "loss" ? 1 : 0,
         ":draws": result === "draw" ? 1 : 0,
-        ":zero": 0, // Ensure the field gets initialized to 0 if it doesn't exist
+        ":zero": 0,
       },
     };
 
