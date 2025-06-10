@@ -1,5 +1,4 @@
 // frontend/app/pages/GamePage.tsx
-// frontend/app/pages/GamePage.tsx
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -24,7 +23,7 @@ import { toast } from "react-toastify";
 
 const GamePage: React.FC = () => {
   const { darkMode } = useTheme();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const { socket, isConnected } = useSocket();
   const { gameActive, timeLeft, currentPlayerId, scores, winner } = useGame();
 
@@ -71,11 +70,7 @@ const GamePage: React.FC = () => {
       setOfflinePlayers(offline);
     };
 
-    const handleChallengeReceive = async ({
-      fromUser,
-    }: {
-      fromUser: OnlineUser;
-    }) => {
+    const handleChallengeReceive = async ({ fromUser }: { fromUser: OnlineUser }) => {
       toast(
         ({ closeToast }) => (
           <div>
@@ -180,6 +175,9 @@ const GamePage: React.FC = () => {
   const handleChallengePlayer = async (targetUser: OnlineUser) => {
     if (!user || !socket) {
       toast.error("You must be logged in to challenge players.");
+      // clear stored credentials
+      logout();
+      setShowNameDialog(true);
       return;
     }
     if (gameActive) {
@@ -302,7 +300,7 @@ const GamePage: React.FC = () => {
       {showChat && (
         <ChatWindow
           onClose={() => setShowChat(false)}
-          currentUser={user!}
+          // currentUser={user!}
           onlineUsersForChat={onlinePlayers}
           onChallengePlayer={handleChallengePlayer}
         />
