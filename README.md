@@ -2,10 +2,10 @@
 
 An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React frontend.
 
-![Tic-Tac-Toe Preview](./public/preview.png)
+![Tic-Tac-Toe Preview](./frontend/public/preview.png)
 
 ## 🌐 Live Demo
-**Production:** [https://your-production-domain.com](https://your-production-domain.com)
+**Production:** [https://tikky-tac.ddns.net/](https://tikky-tac.ddns.net/)
 
 ---
 
@@ -15,6 +15,7 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 - React 19 (TypeScript)
 - React Router v7
 - Tailwind CSS
+- TypeScript
 - Vite
 
 **Backend**:
@@ -25,6 +26,6 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 
 **Infrastructure**:
 - Amazon EC2 (Linux)
-- NGINX (Reverse Proxy)
+- Caddy (Reverse Proxy)
 
 ---
