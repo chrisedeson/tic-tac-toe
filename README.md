@@ -27,4 +27,6 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 - Amazon EC2 (Linux)
 - Caddy (Reverse Proxy)
 
+*Package Manager: PNPM*
+
 ---
