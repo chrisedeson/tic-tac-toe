@@ -30,10 +30,10 @@ export const links: Route.LinksFunction = () => [
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
   // Favicons & Manifest
-  { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+  // { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
   // { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
   // { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
-  { rel: "manifest", href: "favicon/site.webmanifest" },
+  // { rel: "manifest", href: "favicon/site.webmanifest" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -54,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta property="og:image" content="/x-mark.webp" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://your-domain.com" />
+        <meta property="og:url" content="https://tikky-tac.ddns.net" />
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Tic-Tac-Toe | Play with Friends!" />
@@ -63,6 +63,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="Challenge your friends or Christopher in classic Tic-Tac-Toe battles."
         />
         <meta name="twitter:image" content="/og-image.png" />
+
+        <meta
+          name="keywords"
+          content="tic tac toe, online tic tac toe, multiplayer game, play with friends, tic-tac-toe game, X and O, tic tac toe online, web game, classic game, strategy game"
+        />
+        
+        <link rel="manifest" href="favicon/site.webmanifest"></link>
 
         <Meta />
         <Links />
