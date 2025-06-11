@@ -80,7 +80,7 @@ const UserList: React.FC<UserListProps> = ({
   const offline = allUsers.filter((u) => u.status !== "online").reverse();
 
   return (
-    <div>
+    <div className="tiny-scrollbar">
       <h2 className="text-xl font-bold mb-4 border-b pb-2 dark:border-gray-700">
         Players
       </h2>
