@@ -2,7 +2,7 @@
 
 An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React frontend.
 
-![Tic-Tac-Toe Preview](./frontend/public/preview.png)
+![Tic-Tac-Toe Preview](https://github.com/chrisedeson/tic-tac-toe/blob/master/frontend/public/preview.jpg?raw=true)
 
 ## 🌐 Live Demo
 **Production:** [https://tikky-tac.ddns.net/](https://tikky-tac.ddns.net/)
