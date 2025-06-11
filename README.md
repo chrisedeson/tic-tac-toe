@@ -15,7 +15,6 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 - React 19 (TypeScript)
 - React Router v7
 - Tailwind CSS
-- TypeScript
 - Vite
 
 **Backend**:
