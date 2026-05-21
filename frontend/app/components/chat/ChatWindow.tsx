@@ -4,7 +4,7 @@ import { X, Send } from "lucide-react";
 import { useSocket } from "../../contexts/SocketContext";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Message, OnlineUser, ChatWindowProps } from "../../types";
-import { EVENTS } from "../../../../backend/src/socket/events";
+import { EVENTS } from "~/utils/socketEvents";
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   onClose,

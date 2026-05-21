@@ -1,7 +1,7 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-  // Config options...
-  // Server-side render by default, to enable SPA mode set this to `false`
-  ssr: true,
+  // SPA mode — the app has no server loaders/actions, so it builds to static
+  // assets (build/client) and deploys as a Render Static Site.
+  ssr: false,
 } satisfies Config;

@@ -17,7 +17,7 @@ import type {
 } from "../types";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
-import { EVENTS } from "../../../backend/src/socket/events";
+import { EVENTS } from "~/utils/socketEvents";
 
 // Initial game state
 const initialGameState: GameState = {

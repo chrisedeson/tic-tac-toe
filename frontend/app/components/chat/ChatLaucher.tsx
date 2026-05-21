@@ -1,6 +1,6 @@
 // frontend/app/components/ChatLauncher.tsx
 import React, { useState, useEffect } from "react";
-import { EVENTS } from "../../../../backend/src/socket/events";
+import { EVENTS } from "~/utils/socketEvents";
 import { useSocket } from "../../contexts/SocketContext";
 import ChatIcon from "../chat/ChatIcon";
 import ChatWindow from "../chat/ChatWindow";
