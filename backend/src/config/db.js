@@ -4,21 +4,33 @@ const config = require('./index');
 
 let client = null;
 let db = null;
+let connectPromise = null;
 
 /**
  * Connects to MongoDB once and caches the database handle.
- * Safe to call multiple times — returns the cached handle after the first call.
+ * Safe to call multiple times and concurrently — a single connection attempt
+ * is shared by all callers. The client/db are assigned only on success, and a
+ * failed attempt is cleared so a later call can retry.
  */
 async function connectDB() {
   if (db) return db;
-  if (!config.mongodb.uri) {
-    throw new Error('MONGODB_URI environment variable is not set');
+  if (!connectPromise) {
+    connectPromise = (async () => {
+      if (!config.mongodb.uri) {
+        throw new Error('MONGODB_URI environment variable is not set');
+      }
+      const newClient = new MongoClient(config.mongodb.uri);
+      await newClient.connect();
+      client = newClient;
+      db = client.db(config.mongodb.dbName);
+      console.log(`✅ Connected to MongoDB database "${config.mongodb.dbName}"`);
+      return db;
+    })().catch((err) => {
+      connectPromise = null;
+      throw err;
+    });
   }
-  client = new MongoClient(config.mongodb.uri);
-  await client.connect();
-  db = client.db(config.mongodb.dbName);
-  console.log(`✅ Connected to MongoDB database "${config.mongodb.dbName}"`);
-  return db;
+  return connectPromise;
 }
 
 /**
