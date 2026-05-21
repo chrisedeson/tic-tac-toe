@@ -1,71 +1,44 @@
 // backend/src/socket/handlers/gameHandler.js
-const { v4: uuidv4 } = require("uuid");
-const { EVENTS } = require("../events");
-const gameService = require("../../services/gameService");
-const { updateGameStatus } = require("../../controllers/userController");
-const { docClient } = require("../../config/db");
-const config = require("../../config");
-const {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-} = require("@aws-sdk/lib-dynamodb");
+const { v4: uuidv4 } = require('uuid');
+const { EVENTS } = require('../events');
+const gameService = require('../../services/gameService');
+const { updateGameStatus } = require('../../controllers/userController');
+const { getDB } = require('../../config/db');
 
 const activeGames = new Map();
 
 // ---------------------- Update Game in DB ----------------------
 const updateGameInDB = async (gameId, updateData) => {
-  console.log("[DynamoDB] updateGameInDB called with:", { gameId, updateData });
+  console.log('[MongoDB] updateGameInDB called with:', { gameId, updateData });
   if (!gameId) {
-    console.error("[DynamoDB] Missing gameId");
+    console.error('[MongoDB] Missing gameId');
     return null;
   }
 
-  // Remove userID from the Key, since it’s NOT a key attribute in the table
-  const updateExpressionParts = [];
-  const expressionAttributeValues = {};
-  const expressionAttributeNames = {};
-
+  const setFields = {};
   for (const key in updateData) {
-    if (key === "gameID") continue; // skip gameID key
-    const value = updateData[key];
-    if (value === undefined) continue;
-
-    const attrKey = `#${key}`;
-    const attrValue = `:${key}`;
-    updateExpressionParts.push(`${attrKey} = ${attrValue}`);
-    expressionAttributeNames[attrKey] = key;
-    expressionAttributeValues[attrValue] = value;
+    if (key === 'gameID') continue; // never overwrite the id
+    if (updateData[key] === undefined) continue;
+    setFields[key] = updateData[key];
   }
 
-  if (updateExpressionParts.length === 0) {
-    console.warn(
-      "[DynamoDB] No updatable fields found in updateData:",
-      updateData
-    );
+  if (Object.keys(setFields).length === 0) {
+    console.warn('[MongoDB] No updatable fields found in updateData:', updateData);
     return null;
   }
-
-  const params = {
-    TableName: config.aws.gamesTable,
-    Key: { gameID: gameId }, // ONLY gameID here
-    UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
-    ExpressionAttributeNames: expressionAttributeNames,
-    ExpressionAttributeValues: expressionAttributeValues,
-    ReturnValues: "ALL_NEW",
-  };
-
-  console.log(
-    "[DynamoDB] UpdateCommand params:",
-    JSON.stringify(params, null, 2)
-  );
 
   try {
-    const { Attributes } = await docClient.send(new UpdateCommand(params));
-    console.log("[DynamoDB] Update successful:", Attributes);
-    return Attributes;
+    const updated = await getDB()
+      .collection('games')
+      .findOneAndUpdate(
+        { _id: gameId },
+        { $set: setFields },
+        { returnDocument: 'after' }
+      );
+    console.log('[MongoDB] Update successful:', updated);
+    return updated;
   } catch (error) {
-    console.error(`[DynamoDB] Failed to update game ${gameId}:`, error);
+    console.error(`[MongoDB] Failed to update game ${gameId}:`, error);
     return null;
   }
 };
@@ -82,17 +55,12 @@ const createNewGame = async ({ player1, player2 }) => {
     playerO: player2,
     board: Array(9).fill(null),
     currentPlayerId: player1.userId,
-    status: "active",
+    status: 'active',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  await docClient.send(
-    new PutCommand({
-      TableName: config.aws.gamesTable,
-      Item: game,
-    })
-  );
+  await getDB().collection('games').insertOne({ _id: gameID, ...game });
 
   activeGames.set(gameID, { ...game, moveTimer: null });
 
@@ -110,19 +78,19 @@ const startGame = (io, game) => {
       userId: game.playerO.userId,
       username: game.playerO.username,
     },
-    playerSymbol: "X",
+    playerSymbol: 'X',
   };
 
   io.to(game.playerX.socketId).emit(EVENTS.GAME_START, payload);
 
-  if (game.playerO.userId !== "christopher") {
+  if (game.playerO.userId !== 'christopher') {
     io.to(game.playerO.socketId).emit(EVENTS.GAME_START, {
       ...payload,
       opponent: {
         userId: game.playerX.userId,
         username: game.playerX.username,
       },
-      playerSymbol: "O",
+      playerSymbol: 'O',
     });
   }
 };
@@ -130,7 +98,7 @@ const startGame = (io, game) => {
 // ---------------------- Move Timer ----------------------
 const startMoveTimer = (io, gameID) => {
   const game = activeGames.get(gameID);
-  if (!game || game.status !== "active") return;
+  if (!game || game.status !== 'active') return;
 
   if (game.moveTimer) {
     clearInterval(game.moveTimer);
@@ -167,7 +135,7 @@ const startMoveTimer = (io, gameID) => {
           ? game.playerO.userId
           : game.playerX.userId;
 
-      endGame(io, gameID, winnerId, "timeout");
+      endGame(io, gameID, winnerId, 'timeout');
     }
   }, 1000);
 
@@ -175,9 +143,9 @@ const startMoveTimer = (io, gameID) => {
 };
 
 // ---------------------- End Game ----------------------
-const endGame = async (io, gameID, winnerId, reason = "win") => {
+const endGame = async (io, gameID, winnerId, reason = 'win') => {
   const game = activeGames.get(gameID);
-  if (!game || game.status === "completed") return;
+  if (!game || game.status === 'completed') return;
 
   if (game.moveTimer) {
     clearInterval(game.moveTimer);
@@ -190,44 +158,38 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
     io.to(game.playerO.socketId).emit(EVENTS.GAME_END, { winnerId, reason });
   }
 
-  // update gameStatus back to offline (or “idle”) for both players
-  await updateGameStatus(game.playerX.userId, "offline");
-  if (game.playerO.userId !== "christopher") {
-    await updateGameStatus(game.playerO.userId, "offline");
+  // Reset gameStatus back to offline for both players
+  await updateGameStatus(game.playerX.userId, 'offline');
+  if (game.playerO.userId !== 'christopher') {
+    await updateGameStatus(game.playerO.userId, 'offline');
   }
 
-  // Update the game status in the database
+  // Update the game record in the database
   await updateGameInDB(gameID, {
     userID: game.userID,
-    status: "completed",
+    status: 'completed',
     winner: winnerId,
     updatedAt: new Date().toISOString(),
   });
 
-  // Update wins, losses, and draws for both players
+  // Update wins, losses, and draws for a player
   const updatePlayerStats = async (userId, result) => {
-    // **Skip AI** so you don't touch any DB record for 'christopher'
-    if (userId === "christopher") return;
-
-    const userParams = {
-      TableName: config.aws.usersTable,
-      Key: { userID: userId },
-      UpdateExpression: `
-      SET 
-        wins = if_not_exists(wins, :zero) + :wins,
-        losses = if_not_exists(losses, :zero) + :losses,
-        draws = if_not_exists(draws, :zero) + :draws
-    `,
-      ExpressionAttributeValues: {
-        ":wins": result === "win" ? 1 : 0,
-        ":losses": result === "loss" ? 1 : 0,
-        ":draws": result === "draw" ? 1 : 0,
-        ":zero": 0,
-      },
-    };
+    // Skip the AI so we never touch a DB record for 'christopher'
+    if (userId === 'christopher') return;
 
     try {
-      await docClient.send(new UpdateCommand(userParams));
+      await getDB()
+        .collection('users')
+        .updateOne(
+          { _id: userId },
+          {
+            $inc: {
+              wins: result === 'win' ? 1 : 0,
+              losses: result === 'loss' ? 1 : 0,
+              draws: result === 'draw' ? 1 : 0,
+            },
+          }
+        );
       console.log(`Player ${userId} stats updated: ${result}`);
     } catch (error) {
       console.error(`Failed to update player ${userId} stats:`, error);
@@ -235,18 +197,16 @@ const endGame = async (io, gameID, winnerId, reason = "win") => {
   };
 
   // Determine the results and update stats for both players
-  if (winnerId === "Draw") {
-    // If it's a draw, update both players
-    await updatePlayerStats(game.playerX.userId, "draw");
-    await updatePlayerStats(game.playerO.userId, "draw");
+  if (winnerId === 'Draw') {
+    await updatePlayerStats(game.playerX.userId, 'draw');
+    await updatePlayerStats(game.playerO.userId, 'draw');
   } else {
-    // If there is a winner, update winner and loser stats
     const loserId =
       winnerId === game.playerX.userId
         ? game.playerO.userId
         : game.playerX.userId;
-    await updatePlayerStats(winnerId, "win");
-    await updatePlayerStats(loserId, "loss");
+    await updatePlayerStats(winnerId, 'win');
+    await updatePlayerStats(loserId, 'loss');
   }
 
   activeGames.delete(gameID);
@@ -275,8 +235,8 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
       const game = await createNewGame({ player1: toUser, player2: fromUser });
 
       // mark both players as playing
-      await updateGameStatus(toUser.userId, "playing");
-      await updateGameStatus(fromUser.userId, "playing");
+      await updateGameStatus(toUser.userId, 'playing');
+      await updateGameStatus(fromUser.userId, 'playing');
       startGame(io, game);
       startMoveTimer(io, game.gameID);
     } else {
@@ -291,11 +251,11 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
     if (!fromUser) return;
 
     // mark the human as playing
-    await updateGameStatus(fromUser.userId, "playing");
+    await updateGameStatus(fromUser.userId, 'playing');
 
     const christopher = {
-      userId: "christopher",
-      username: "Christopher",
+      userId: 'christopher',
+      username: 'Christopher',
       socketId: null,
     };
     const game = await createNewGame({
@@ -322,10 +282,10 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
     )
       return;
 
-    const symbol = player.userId === game.playerX.userId ? "X" : "O";
+    const symbol = player.userId === game.playerX.userId ? 'X' : 'O';
     game.board[cellIndex] = symbol;
     game.currentPlayerId =
-      symbol === "X" ? game.playerO.userId : game.playerX.userId;
+      symbol === 'X' ? game.playerO.userId : game.playerX.userId;
     game.updatedAt = new Date().toISOString();
 
     if (game.moveTimer) {
@@ -336,12 +296,12 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
     const winnerSymbol = gameService.calculateWinner(game.board);
     if (winnerSymbol) {
       const winnerId =
-        winnerSymbol === "X" ? game.playerX.userId : game.playerO.userId;
+        winnerSymbol === 'X' ? game.playerX.userId : game.playerO.userId;
       return endGame(io, gameId, winnerId);
     }
 
     if (gameService.isDraw(game.board)) {
-      return endGame(io, gameId, "Draw", "draw");
+      return endGame(io, gameId, 'Draw', 'draw');
     }
 
     io.to(game.playerX.socketId).emit(EVENTS.GAME_STATE_UPDATE, {
@@ -355,20 +315,20 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
       });
     }
 
-    if (game.currentPlayerId === "christopher") {
+    if (game.currentPlayerId === 'christopher') {
       setTimeout(() => {
         const latestGame = activeGames.get(gameId);
-        if (!latestGame || latestGame.status !== "active") return; // 💥 Guard to avoid acting on ended game
+        if (!latestGame || latestGame.status !== 'active') return;
 
         const aiMove = gameService.getChristopherMove(latestGame.board);
-        latestGame.board[aiMove] = "O";
+        latestGame.board[aiMove] = 'O';
         latestGame.currentPlayerId = latestGame.playerX.userId;
         latestGame.updatedAt = new Date().toISOString();
 
         const aiWinner = gameService.calculateWinner(latestGame.board);
-        if (aiWinner) return endGame(io, gameId, "christopher");
+        if (aiWinner) return endGame(io, gameId, 'christopher');
         if (gameService.isDraw(latestGame.board))
-          return endGame(io, gameId, "Draw", "draw");
+          return endGame(io, gameId, 'Draw', 'draw');
 
         io.to(latestGame.playerX.socketId).emit(EVENTS.GAME_STATE_UPDATE, {
           board: latestGame.board,
@@ -376,10 +336,10 @@ module.exports.initGameHandler = (io, socket, onlineUsers) => {
         });
 
         startMoveTimer(io, gameId);
-        activeGames.set(gameId, latestGame); // 👈 Remember to update activeGames
+        activeGames.set(gameId, latestGame);
       }, 1000);
     } else {
-      startMoveTimer(io, gameId); // ✅ Start timer for next player
+      startMoveTimer(io, gameId);
     }
 
     activeGames.set(gameId, game);
