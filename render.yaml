@@ -1,0 +1,22 @@
+# Render Blueprint — deploys the Tic-Tac-Toe Socket.IO backend.
+# Spec: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: tic-tac-toe-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: frankfurt          # Pick the region closest to you / your Atlas cluster.
+    branch: master
+    buildCommand: pnpm install
+    startCommand: pnpm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # PORT is injected automatically by Render — do not set it.
+      - key: MONGODB_URI          # MongoDB Atlas connection string (secret)
+        sync: false
+      - key: MONGODB_DB_NAME      # Optional — defaults to "tictactoe"
+        sync: false
+      - key: FRONTEND_URL         # Frontend origin for CORS (set after deploying the frontend)
+        sync: false
