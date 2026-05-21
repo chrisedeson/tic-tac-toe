@@ -9,10 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const userStatsRoutes = require('./routes/userStatsRoutes');
 const setupSocketHandlers = require('./socket');
-const { docClient } = require('./config/db');
-const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-
-// Import our new cleanup service
+const { connectDB, getDB, ensureIndexes } = require('./config/db');
 const { cleanupInvalidUsers } = require('./services/cleanupService');
 
 const app = express();
@@ -36,19 +33,14 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Test DynamoDB connection
-app.get('/test-aws', async (req, res) => {
+// MongoDB connectivity check
+app.get('/test-db', async (req, res) => {
   try {
-    const data = await docClient.send(
-      new ScanCommand({ TableName: config.aws.usersTable })
-    );
-    if (!data.Items || data.Items.length === 0) {
-      return res.status(404).json({ message: 'No data found in DynamoDB' });
-    }
-    res.json({ message: 'AWS DynamoDB is working', data: data.Items });
+    await getDB().command({ ping: 1 });
+    res.json({ message: 'MongoDB is connected', status: 'ok' });
   } catch (error) {
-    console.error('Error accessing DynamoDB:', error);
-    res.status(500).json({ error: 'Failed to connect to DynamoDB' });
+    console.error('Error pinging MongoDB:', error);
+    res.status(500).json({ error: 'Failed to connect to MongoDB' });
   }
 });
 
@@ -61,25 +53,34 @@ app.use((err, req, res, next) => {
   res.status(500).send({ error: 'Something broke!' });
 });
 
-// === Cleanup scheduler ===
+// === Startup ===
 const TEN_MINUTES = 10 * 60 * 1000;
 
-// Run once at startup
-cleanupInvalidUsers().catch(err => {
-  console.error('[Cleanup] Initial invalid user cleanup failed:', err);
-});
+async function start() {
+  await connectDB();
+  await ensureIndexes();
 
-// Schedule to run every 10 minutes
-setInterval(() => {
-  cleanupInvalidUsers().catch(err => {
-    console.error('[Cleanup] Error during invalid user cleanup:', err);
+  // Run cleanup once at startup
+  cleanupInvalidUsers().catch((err) => {
+    console.error('[Cleanup] Initial invalid user cleanup failed:', err);
   });
-}, TEN_MINUTES);
 
- // Start server
-server.listen(config.port, () => {
-  console.log(`🚀 Server running on http://localhost:${config.port}`);
-  console.log(`🔌 Socket.IO active on port ${config.port}`);
+  // Schedule cleanup every 10 minutes
+  setInterval(() => {
+    cleanupInvalidUsers().catch((err) => {
+      console.error('[Cleanup] Error during invalid user cleanup:', err);
+    });
+  }, TEN_MINUTES);
+
+  server.listen(config.port, () => {
+    console.log(`🚀 Server running on port ${config.port}`);
+    console.log(`🔌 Socket.IO active on port ${config.port}`);
+  });
+}
+
+start().catch((err) => {
+  console.error('❌ Failed to start server:', err);
+  process.exit(1);
 });
 
 module.exports = { app, server, io };
