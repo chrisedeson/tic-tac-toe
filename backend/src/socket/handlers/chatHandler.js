@@ -1,15 +1,14 @@
 // backend/src/socket/handlers/chatHandler.js
-const { EVENTS } = require("../events");
-const { v4: uuidv4 } = require("uuid");
-const { docClient } = require("../../config/db");
-const { PutCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const { EVENTS } = require('../events');
+const { v4: uuidv4 } = require('uuid');
+const { getDB } = require('../../config/db');
 
 module.exports.initChatHandler = (io, socket, onlineUsers) => {
-  // Save to DynamoDB
+  // Save a message to MongoDB
   const saveMessageToDB = async ({ messagePayload }) => {
-    const params = {
-      TableName: "messages",
-      Item: {
+    try {
+      await getDB().collection('messages').insertOne({
+        _id: messagePayload.id,
         messageID: messagePayload.id,
         senderId: messagePayload.senderId,
         receiverId: messagePayload.receiverId || null,
@@ -17,47 +16,41 @@ module.exports.initChatHandler = (io, socket, onlineUsers) => {
         senderUsername: messagePayload.senderUsername,
         messageType: messagePayload.messageType,
         timestamp: messagePayload.timestamp,
-      },
-    };
-    try {
-      await docClient.send(new PutCommand(params));
+      });
     } catch (err) {
-      console.error("Error saving message to DB:", err);
+      console.error('Error saving message to DB:', err);
     }
   };
 
-  // Fetch public history
+  // Fetch public history (chronological)
   const fetchPublicMessages = async () => {
-    const params = {
-      TableName: "messages",
-      FilterExpression: "messageType = :type",
-      ExpressionAttributeValues: { ":type": "public" },
-    };
     try {
-      const data = await docClient.send(new ScanCommand(params));
-      return data.Items || [];
+      return await getDB()
+        .collection('messages')
+        .find({ messageType: 'public' })
+        .sort({ timestamp: 1 })
+        .toArray();
     } catch (err) {
-      console.error("Error fetching public messages:", err);
+      console.error('Error fetching public messages:', err);
       return [];
     }
   };
 
-  // Fetch private history
+  // Fetch private history between two users (chronological)
   const fetchPrivateMessages = async (me, other) => {
-    const params = {
-      TableName: "messages",
-      FilterExpression:
-        "(senderId = :me AND receiverId = :other) OR (senderId = :other AND receiverId = :me)",
-      ExpressionAttributeValues: {
-        ":me": me,
-        ":other": other,
-      },
-    };
     try {
-      const data = await docClient.send(new ScanCommand(params));
-      return data.Items || [];
+      return await getDB()
+        .collection('messages')
+        .find({
+          $or: [
+            { senderId: me, receiverId: other },
+            { senderId: other, receiverId: me },
+          ],
+        })
+        .sort({ timestamp: 1 })
+        .toArray();
     } catch (err) {
-      console.error("Error fetching private messages:", err);
+      console.error('Error fetching private messages:', err);
       return [];
     }
   };
@@ -79,7 +72,7 @@ module.exports.initChatHandler = (io, socket, onlineUsers) => {
       senderUsername: sender.username,
       receiverId: null,
       messageContent: message,
-      messageType: "public",
+      messageType: 'public',
       timestamp: new Date().toISOString(),
     };
 
@@ -99,33 +92,27 @@ module.exports.initChatHandler = (io, socket, onlineUsers) => {
       receiverId: toUserId,
       senderUsername: fromUser.username,
       messageContent: message,
-      messageType: "private",
+      messageType: 'private',
       timestamp: new Date().toISOString(),
     };
 
-    io.to(toUser.socketId).emit(
-      EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE,
-      messagePayload
-    );
-    io.to(fromUser.socketId).emit(
-      EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE,
-      messagePayload
-    );
+    io.to(toUser.socketId).emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, messagePayload);
+    io.to(fromUser.socketId).emit(EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE, messagePayload);
     await saveMessageToDB({ messagePayload });
   });
 
-  // On‐demand fetch (public or private)
+  // On-demand fetch (public or private)
   socket.on(
     EVENTS.CHAT_FETCH_MESSAGES,
     async ({ type, currentUserId, otherUserId }) => {
       let history = [];
-      if (type === "public") {
+      if (type === 'public') {
         history = await fetchPublicMessages();
-      } else if (type === "private") {
+      } else if (type === 'private') {
         history = await fetchPrivateMessages(currentUserId, otherUserId);
       }
       socket.emit(
-        type === "public"
+        type === 'public'
           ? EVENTS.CHAT_MESSAGE_RECEIVE
           : EVENTS.CHAT_PRIVATE_MESSAGE_RECEIVE,
         history
