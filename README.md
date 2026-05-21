@@ -5,7 +5,7 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 ![Tic-Tac-Toe Preview](https://github.com/chrisedeson/tic-tac-toe/blob/master/frontend/public/preview.jpg?raw=true)
 
 ## 🌐 Live Demo
-**Production:** [https://tikky-tac.ddns.net/](https://tikky-tac.ddns.net/)
+**Production:** [https://tikky-tac.onrender.com](https://tikky-tac.onrender.com)
 
 ---
 
@@ -20,13 +20,14 @@ An online multiplayer Tic-Tac-Toe game with a real-time backend and modern React
 **Backend**:
 - Node.js
 - Express.js
-- AWS DynamoDB (via AWS SDK v3)
+- MongoDB (via the MongoDB Node.js driver)
 - Socket.IO (for real-time gameplay)
 
 **Infrastructure**:
-- Amazon EC2 (Linux)
-- Caddy (Reverse Proxy)
+- Render — backend web service + frontend static site
+- MongoDB Atlas — database
+- Prior setup: AWS EC2, AWS DynamoDB (AWS SDK v3), Caddy
 
-*Package Manager: PNPM*
+*Package Manager: PNPM · Hosting on Render + MongoDB since May 2026*
 
 ---
