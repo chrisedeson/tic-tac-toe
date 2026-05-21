@@ -4,7 +4,7 @@ import Cell from "./Cell";
 import { useGame } from "../../contexts/GameContext";
 import { useSocket } from "../../contexts/SocketContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { EVENTS } from "../../../../backend/src/socket/events";
+import { EVENTS } from "~/utils/socketEvents";
 
 const Board: React.FC = () => {
   const {

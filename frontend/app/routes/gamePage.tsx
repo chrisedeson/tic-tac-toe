@@ -18,7 +18,7 @@ import UserList from "../components/chat/UserList";
 import ChatIcon from "../components/chat/ChatIcon";
 import api from "../services/api";
 
-import { EVENTS } from "../../../backend/src/socket/events";
+import { EVENTS } from "~/utils/socketEvents";
 import { toast } from "react-toastify";
 
 const GamePage: React.FC = () => {

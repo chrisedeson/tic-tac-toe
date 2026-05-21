@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import api from '~/services/api';
-import { EVENTS } from '../../../backend/src/socket/events';
+import { EVENTS } from "~/utils/socketEvents";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -23,11 +23,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Presence tracking
   useEffect(() => {
     if (!(isAuthenticated && user?.userID)) return;
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    // VITE_API_URL is the API base INCLUDING the /api prefix (matches services/api.ts)
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     const sendPresence = async (status: 'online' | 'offline') => {
       try {
-        await fetch(`${apiUrl}/api/users/${user.userID}/presence`, {
+        await fetch(`${apiUrl}/users/${user.userID}/presence`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -49,7 +50,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Before unload
     const onBeforeUnload = () => {
       navigator.sendBeacon(
-        `${apiUrl}/api/users/${user.userID}/presence`,
+        `${apiUrl}/users/${user.userID}/presence`,
         JSON.stringify({ status: 'offline', lastSeen: new Date().toISOString() })
       );
     };
