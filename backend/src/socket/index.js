@@ -1,29 +1,22 @@
+// backend/src/socket/index.js
 const { initChatHandler } = require('./handlers/chatHandler');
 const { initGameHandler } = require('./handlers/gameHandler');
 const { initUserHandler } = require('./handlers/userHandler');
 const { EVENTS } = require('./events');
-const { docClient } = require('../config/db');
-const config = require('../config');
-const { UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { getDB } = require('../config/db');
 
 const onlineUsers = new Map();
 
-// Helper to update user status in DynamoDB
+// Helper to update user status in MongoDB
 const setUserOnlineStatus = async (userId, status, lastSeen = null) => {
-  const params = {
-    TableName: config.aws.usersTable,
-    Key: { userID: userId },
-    UpdateExpression: 'set #status = :status' + (lastSeen ? ', lastSeen = :lastSeen' : ''),
-    ExpressionAttributeNames: { '#status': 'status' },
-    ExpressionAttributeValues: {
-      ':status': status,
-    },
-  };
+  const setFields = { status };
   if (lastSeen) {
-    params.ExpressionAttributeValues[':lastSeen'] = lastSeen;
+    setFields.lastSeen = lastSeen;
   }
   try {
-    await docClient.send(new UpdateCommand(params));
+    await getDB()
+      .collection('users')
+      .updateOne({ _id: userId }, { $set: setFields });
     console.log(`User ${userId} status updated to ${status}`);
   } catch (error) {
     console.error(`Error updating user ${userId} status:`, error);
@@ -46,7 +39,11 @@ module.exports = (io) => {
         onlineUsers.delete(socket.id);
 
         try {
-          await setUserOnlineStatus(userData.userId, 'offline', new Date().toISOString());
+          await setUserOnlineStatus(
+            userData.userId,
+            'offline',
+            new Date().toISOString()
+          );
         } catch (error) {
           console.error(`Failed to update user status on disconnect:`, error);
         }
@@ -56,11 +53,14 @@ module.exports = (io) => {
           username: userData.username,
         });
 
-        io.emit(EVENTS.USER_LIST_UPDATED, Array.from(onlineUsers.values()).map(u => ({
-          userId: u.userId,
-          username: u.username,
-          lastSeen: 'Online',
-        })));
+        io.emit(
+          EVENTS.USER_LIST_UPDATED,
+          Array.from(onlineUsers.values()).map((u) => ({
+            userId: u.userId,
+            username: u.username,
+            lastSeen: 'Online',
+          }))
+        );
 
         console.log('Updated online users:', Array.from(onlineUsers.values()));
       }
